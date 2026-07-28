@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+yfinance
+requests
+python-dotenv
+pydantic
+httpx
+beautifulsoup4
+lxml
+PyMuPDF
+pdfplumber
+openai
