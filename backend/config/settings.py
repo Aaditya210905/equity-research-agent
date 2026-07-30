@@ -84,9 +84,24 @@ class Settings(BaseModel):
         description="Number of chunks per embedding API batch call",
     )
 
+    # --- Vector Store (Phase 2.5) ---
+    QDRANT_PATH: str = Field(
+        default="data/qdrant",
+        description="Path for local Qdrant storage",
+    )
+    QDRANT_COLLECTION: str = Field(
+        default="financial_documents",
+        description="Default Qdrant collection name",
+    )
+
+    # --- RAG / LLM (Phase 2.6) ---
+    LLM_MODEL: str = Field(
+        default="gpt-4o-mini",
+        description="OpenAI model for RAG answer generation",
+    )
+
     # --- Future configuration slots (uncomment as phases are added) ---
     # REDIS_URL: str = Field(default="redis://localhost:6379/0")
-    # VECTOR_DB_URL: str = Field(default="")
     # ANTHROPIC_API_KEY: str = Field(default="")
 
 

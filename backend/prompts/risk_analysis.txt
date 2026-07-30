@@ -1,0 +1,21 @@
+Write the RISK ANALYSIS section of this equity research report.
+
+COMPANY: {company_name} ({ticker}) — {sector}
+
+SOLVENCY METRICS:
+{solvency_metrics}
+
+EVIDENCE FROM RISK FACTOR DISCLOSURES:
+{evidence}
+
+RECENT NEWS (potential risk signals):
+{news}
+
+INSTRUCTIONS:
+- Categorize risks into: Operational, Financial, Regulatory, Market, Strategic, and Cybersecurity.
+- For each risk category with evidence, explain the risk and its potential impact.
+- Use specific language from the company's own filings where possible.
+- Cite every risk factor using [N] references.
+- Note which risk categories lack documentary evidence.
+- Assess the overall risk profile (conservative / moderate / elevated).
+- Never speculate beyond what the evidence supports.

@@ -1,0 +1,20 @@
+Write the GROWTH OPPORTUNITIES section of this equity research report.
+
+COMPANY: {company_name} ({ticker}) — {sector}
+
+GROWTH METRICS:
+{growth_metrics}
+
+EVIDENCE FROM ANNUAL REPORTS AND FILINGS:
+{evidence}
+
+RECENT NEWS:
+{news}
+
+INSTRUCTIONS:
+- Identify and analyze key growth drivers: market expansion, new products, digital transformation, AI initiatives, geographic expansion.
+- Quantify growth where possible using provided metrics and evidence.
+- Assess the sustainability of each growth driver.
+- Cite evidence using [N] references.
+- Distinguish between near-term catalysts and long-term opportunities.
+- If growth data is limited, state what additional information would be needed.

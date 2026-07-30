@@ -1,0 +1,38 @@
+Write the INVESTMENT THESIS section of this equity research report.
+
+COMPANY: {company_name} ({ticker}) — {sector}
+
+FINANCIAL HEALTH SCORE: {health_score}/100
+
+KEY METRICS SUMMARY:
+{metrics_summary}
+
+KEY RISKS:
+{risk_summary}
+
+KEY GROWTH DRIVERS:
+{growth_summary}
+
+VALUATION CONTEXT:
+{valuation_summary}
+
+INSTRUCTIONS:
+Structure the thesis into three clear subsections:
+
+**Bull Case** — Reasons the investment could outperform:
+- Strongest growth drivers
+- Financial strengths
+- Strategic advantages
+
+**Bear Case** — Risks that could lead to underperformance:
+- Material risks
+- Financial weaknesses
+- Competitive threats
+
+**Balanced View** — Professional synthesis:
+- Weigh bull vs bear factors
+- Note key uncertainties
+- Avoid extreme language — professional analysts present evidence, not opinions
+
+Cite evidence using [N] references throughout.
+Every statement should be traceable to provided evidence or computed metrics.

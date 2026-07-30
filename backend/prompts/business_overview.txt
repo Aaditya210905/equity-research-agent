@@ -1,0 +1,17 @@
+Write the BUSINESS OVERVIEW section of this equity research report.
+
+COMPANY: {company_name} ({ticker}) — {sector}
+
+COMPANY PROFILE:
+{company_profile}
+
+EVIDENCE FROM ANNUAL REPORTS AND FILINGS:
+{evidence}
+
+INSTRUCTIONS:
+- Analyze the company's business model and revenue streams.
+- Describe geographic exposure and customer concentration if evident.
+- Discuss industry positioning and competitive landscape.
+- Identify key products, services, and market segments.
+- Ground every point in the provided evidence using [N] citations.
+- If certain business areas lack coverage in the evidence, note the gap.

@@ -11,6 +11,12 @@ Phase 1.2:
 Phase 1.3:
     POST /documents/{ticker}/collect  -> CollectionResult
     GET  /documents/{ticker}          -> DocumentCollection
+
+Phase 2.6:
+    POST /ask                         -> RAGAnswer
+
+Phase 4:
+    POST /research/{ticker}           -> ResearchReport
 """
 
 import logging
@@ -22,6 +28,8 @@ from connectors.market import MarketDataError
 from schemas.company import CompanyOverview
 from schemas.market import MarketSnapshot, PriceHistory
 from schemas.document import DocumentCollection, CollectionResult
+from schemas.answer import RAGAnswer, AskRequest
+from schemas.research_report import ResearchReport, ResearchRequest
 from services import data_service, document_service
 
 logger = logging.getLogger(__name__)
@@ -192,4 +200,101 @@ async def get_documents(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve documents for '{ticker.upper()}'.",
+        )
+
+
+# ---------------------------------------------------------------------------
+# RAG endpoint (Phase 2.6)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/ask",
+    response_model=RAGAnswer,
+    tags=["RAG"],
+    summary="Ask a financial research question",
+    description=(
+        "Answers a question using retrieved evidence from indexed financial "
+        "documents. Returns a grounded answer with citations and a confidence score. "
+        "Requires documents to be indexed in the vector store."
+    ),
+)
+async def ask_question(request: AskRequest):
+    """Answer a question using the RAG pipeline.
+
+    Flow:
+        1. Classify question type
+        2. Expand / rewrite query
+        3. Retrieve relevant chunks from vector DB
+        4. Build context with citations
+        5. Generate answer via LLM
+        6. Compute confidence score
+    """
+    try:
+        from rag.orchestrator import ask
+
+        result = ask(
+            question=request.question,
+            company=request.company,
+            year=request.year,
+            doc_type=request.doc_type,
+            top_k=request.top_k,
+            rewrite_query=request.rewrite_query,
+        )
+        return result
+    except RuntimeError as exc:
+        logger.error("RAG configuration error: %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        logger.error("RAG error: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process question: {str(exc)}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Research Report endpoint (Phase 5 — full pipeline)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/research/{ticker}",
+    tags=["Research"],
+    summary="Generate verified equity research report",
+    description=(
+        "Generates a professional equity research report using the full pipeline: "
+        "Planner → Tool Execution → Report Generation → Claim Verification → Revision. "
+        "Returns the verified report, verification results, and a full execution trace."
+    ),
+)
+async def generate_research_report(ticker: str, request: ResearchRequest = None):
+    """Generate a full, verified equity research report.
+
+    Pipeline:
+        1. Planner creates structured execution plan
+        2. Executor calls financial engine, retriever, market service, news
+        3. Analyst generates 7-section report
+        4. Claim extractor + verifier checks every factual claim
+        5. Reviser adds disclaimers for unverified claims
+    """
+    try:
+        from report.report_generator import generate_research
+
+        result = generate_research(
+            request=f"Generate a comprehensive equity research report for {ticker.upper()}",
+            companies=[ticker.upper()],
+        )
+
+        return result
+
+    except RuntimeError as exc:
+        logger.error("Research config error for '%s': %s", ticker, exc)
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        logger.error("Research error for '%s': %s", ticker, exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate research report for '{ticker.upper()}'.",
         )

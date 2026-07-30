@@ -1,0 +1,20 @@
+Write the VALUATION COMMENTARY section of this equity research report.
+
+COMPANY: {company_name} ({ticker})
+
+VALUATION METRICS (deterministic):
+{valuation_metrics}
+
+MARKET DATA:
+{market_data}
+
+PROFITABILITY CONTEXT:
+{profitability_metrics}
+
+INSTRUCTIONS:
+- Discuss current valuation using the provided multiples (P/E, EV/EBITDA, P/B, P/S, FCF Yield, Dividend Yield).
+- Use the exact numbers provided — never recalculate.
+- Put the multiples in context: are they elevated or compressed relative to the company's profitability and growth?
+- This is NOT a full DCF or target-price analysis.
+- Focus on relative valuation observations, not buy/sell recommendations.
+- Note which valuation metrics are unavailable (shown as missing_data).

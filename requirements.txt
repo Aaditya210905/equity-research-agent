@@ -10,3 +10,4 @@ lxml
 PyMuPDF
 pdfplumber
 openai
+qdrant-client

@@ -1,0 +1,22 @@
+Write the FINANCIAL PERFORMANCE ANALYSIS section of this equity research report.
+
+COMPANY: {company_name} ({ticker})
+
+COMPUTED FINANCIAL METRICS (deterministic — do NOT recalculate):
+{metrics}
+
+GROWTH METRICS (year-over-year):
+{growth_metrics}
+
+EVIDENCE FROM FINANCIAL FILINGS:
+{evidence}
+
+INSTRUCTIONS:
+- Analyze profitability trends (margins, ROE, ROA, ROIC). Use the exact numbers provided.
+- Discuss liquidity and solvency position.
+- Analyze cash flow quality (FCF, cash conversion).
+- Note any concerning trends or standout strengths.
+- NEVER recalculate any metric. The numbers above are deterministic and final.
+- Explain what the numbers MEAN for the business, not how they were calculated.
+- Cite evidence using [N] references where applicable.
+- If a metric shows "missing_data", note the gap rather than estimating.

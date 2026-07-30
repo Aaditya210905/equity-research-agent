@@ -1,0 +1,23 @@
+Write the EXECUTIVE SUMMARY section of this equity research report.
+
+COMPANY: {company_name} ({ticker}) — {sector}
+
+FINANCIAL HEALTH SCORE: {health_score}/100
+
+KEY FINANCIAL METRICS:
+{financial_summary}
+
+KEY FINDINGS FROM DOCUMENTS:
+{evidence_summary}
+
+RECENT NEWS:
+{news_summary}
+
+INSTRUCTIONS:
+- Write 2–3 concise paragraphs summarizing the overall investment picture.
+- Open with the company's core business and financial health.
+- Highlight the most important financial trends (use exact numbers from the metrics).
+- Note the top 1–2 risks and growth catalysts.
+- End with a high-level investment perspective (not a recommendation).
+- Cite evidence using [N] references.
+- If evidence is insufficient, state what data is missing.

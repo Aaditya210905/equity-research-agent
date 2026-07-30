@@ -61,13 +61,14 @@ def init_cache(db_path: str | Path = None) -> None:
 
     _conn.execute("""
         CREATE TABLE IF NOT EXISTS embedding_cache (
-            content_hash    TEXT PRIMARY KEY,
-            chunk_id        TEXT NOT NULL,
-            embedding       TEXT NOT NULL,
-            embedding_model TEXT NOT NULL,
-            embedding_dim   INTEGER NOT NULL,
+            content_hash      TEXT NOT NULL,
+            chunk_id          TEXT NOT NULL,
+            embedding         TEXT NOT NULL,
+            embedding_model   TEXT NOT NULL,
+            embedding_dim     INTEGER NOT NULL,
             embedding_version INTEGER DEFAULT 1,
-            created_at      TEXT NOT NULL
+            created_at        TEXT NOT NULL,
+            PRIMARY KEY (content_hash, embedding_model, embedding_version)
         )
     """)
     _conn.commit()
