@@ -82,6 +82,7 @@ class MarketSnapshot(BaseModel):
     """
 
     ticker: str = Field(..., description="Stock ticker symbol")
+    currency: Optional[str] = Field(None, description="Trading currency (e.g. USD, INR)")
     price: PriceSnapshot = Field(..., description="Current price snapshot")
     valuation: Valuation = Field(..., description="Valuation metrics")
     multiples: Multiples = Field(..., description="Financial multiples")

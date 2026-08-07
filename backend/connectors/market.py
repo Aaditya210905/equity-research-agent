@@ -53,7 +53,9 @@ class MarketDataError(Exception):
 # ---------------------------------------------------------------------------
 def _fetch_info(symbol: str) -> dict:
     """Fetch the raw info dict from yfinance. Single HTTP call."""
-    stock = yf.Ticker(symbol.strip().upper())
+    from connectors.yahoo_finance import resolve_ticker
+    resolved = resolve_ticker(symbol)
+    stock = yf.Ticker(resolved)
     info = stock.info or {}
     return info
 
@@ -190,6 +192,8 @@ def get_market_snapshot(ticker: str) -> dict:
         return {
             "ticker": normalized_ticker,
 
+            "currency": _safe(info.get("currency")),
+
             "price": {
                 "current": _safe(info.get("currentPrice")) or _safe(info.get("regularMarketPrice")),
                 "open": _safe(info.get("open")) or _safe(info.get("regularMarketOpen")),
@@ -247,7 +251,8 @@ def get_price_history(ticker: str, period: str = "1y") -> list[dict]:
         ``adjusted_close`` equals ``close`` in modern yfinance (auto-adjusted).
     """
     try:
-        symbol = ticker.strip().upper()
+        from connectors.yahoo_finance import resolve_ticker
+        symbol = resolve_ticker(ticker)
         stock = yf.Ticker(symbol)
         hist: pd.DataFrame = stock.history(period=period)
 
