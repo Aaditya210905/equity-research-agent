@@ -35,9 +35,63 @@ class YahooFinanceError(Exception):
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def resolve_ticker(ticker: str) -> str:
+    """Resolve a user-entered ticker into a valid Yahoo Finance symbol.
+
+    Tries the ticker as-is first (works for US stocks like AAPL, MSFT).
+    If that returns no data, tries with .NS suffix (Indian NSE stocks
+    like WIPRO → WIPRO.NS, RELIANCE → RELIANCE.NS).
+    If the user already provided a suffix (e.g. WIPRO.NS), uses it directly.
+    """
+    ticker = ticker.strip().upper()
+
+    if not ticker:
+        raise YahooFinanceError("Ticker cannot be empty.")
+
+    # User already specified an exchange suffix
+    if "." in ticker:
+        return ticker
+
+    # Step 1: Try ticker directly (US stocks)
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info or {}
+        if (
+            info.get("longName")
+            or info.get("shortName")
+            or info.get("regularMarketPrice")
+            or info.get("currentPrice")
+        ):
+            return ticker
+    except Exception:
+        pass
+
+    # Step 2: Try NSE India (.NS suffix)
+    nse_ticker = ticker + ".NS"
+    try:
+        stock = yf.Ticker(nse_ticker)
+        info = stock.info or {}
+        if (
+            info.get("longName")
+            or info.get("shortName")
+            or info.get("regularMarketPrice")
+            or info.get("currentPrice")
+        ):
+            logger.info("Resolved '%s' → '%s' (NSE India)", ticker, nse_ticker)
+            return nse_ticker
+    except Exception:
+        pass
+
+    # Fallback: return original ticker and let downstream handle errors
+    logger.warning("Could not resolve ticker '%s', using as-is", ticker)
+    return ticker
+
+
 def _get_stock(symbol: str) -> yf.Ticker:
-    """Create a yfinance Ticker. Always uppercases the symbol."""
-    return yf.Ticker(symbol.strip().upper())
+    """Create a yfinance Ticker using the resolved symbol."""
+    resolved = resolve_ticker(symbol)
+    return yf.Ticker(resolved)
 
 
 def _safe(value, default=None):
