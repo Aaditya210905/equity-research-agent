@@ -12,6 +12,12 @@ Phase 1.3:
     POST /documents/{ticker}/collect  -> CollectionResult
     GET  /documents/{ticker}          -> DocumentCollection
 
+Phase 1.4 (BSE filings):
+    GET  /bse/search                  -> list[CompanyHit]
+    POST /bse/filings/fetch           -> FetchResult
+    GET  /bse/filings                 -> list[CompanyFolder]
+    GET  /bse/file/{file_path}        -> PDF FileResponse
+
 Phase 2.6:
     POST /ask                         -> RAGAnswer
 
@@ -31,6 +37,12 @@ from schemas.document import DocumentCollection, CollectionResult
 from schemas.answer import RAGAnswer, AskRequest
 from schemas.research_report import ResearchReport, ResearchRequest
 from services import data_service, document_service
+
+from fastapi.responses import FileResponse
+from connectors.bse import search_companies
+from services.bse_service import ingest_company
+from schemas.bse import FetchOptions
+from services.bse_storage import list_company_folders, resolve_under_root
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +214,69 @@ async def get_documents(
             detail=f"Failed to retrieve documents for '{ticker.upper()}'.",
         )
 
+# ---------------------------------------------------------------------------
+# Phase 1.4 — BSE Filings (annual reports, quarterly results, announcements)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/bse/search",
+    tags=["BSE Filings"],
+    summary="Search BSE-listed companies",
+    description="Search for a company by name or symbol and get its BSE scrip code.",
+)
+async def bse_search(query: str = Query(min_length=2, max_length=80)):
+    """Search BSE for a company to get its scrip code."""
+    try:
+        return await search_companies(query)
+    except Exception as exc:
+        logger.error("BSE search error: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@router.post(
+    "/bse/filings/fetch",
+    tags=["BSE Filings"],
+    summary="Fetch BSE filings for a company",
+    description=(
+        "Fetches and saves annual reports, quarterly results, and corporate "
+        "announcements from BSE India for the given scrip code."
+    ),
+)
+async def bse_fetch_filings(options: FetchOptions):
+    """Fetch and store BSE filings (annual reports, quarterly, announcements)."""
+    try:
+        return await ingest_company(options)
+    except Exception as exc:
+        logger.error("BSE fetch error for scrip '%s': %s", options.scripCode, exc)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@router.get(
+    "/bse/filings",
+    tags=["BSE Filings"],
+    summary="List all fetched BSE filings",
+    description="Returns a list of all companies whose filings have been downloaded.",
+)
+async def bse_list_filings():
+    """List all BSE company filing folders that have been fetched."""
+    return list_company_folders()
+
+
+@router.get(
+    "/bse/file/{file_path:path}",
+    tags=["BSE Filings"],
+    summary="Serve a downloaded BSE PDF",
+    description="Serves a previously downloaded PDF filing by its relative path.",
+)
+async def bse_serve_file(file_path: str):
+    """Serve a downloaded BSE PDF by relative path."""
+    try:
+        path = resolve_under_root(file_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path, media_type="application/pdf", filename=path.name)
 
 # ---------------------------------------------------------------------------
 # RAG endpoint (Phase 2.6)

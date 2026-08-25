@@ -5,3 +5,6 @@ __pycache__/
 .env
 sample.py
 logs/
+documents/
+sample.ipynb
+sample2.py
