@@ -196,20 +196,10 @@ def test_embedder_module():
     section("4. EMBEDDER MODULE STRUCTURE")
     from embedding import embedder
 
-    log_result("Has EMBEDDING_MODELS", hasattr(embedder, "EMBEDDING_MODELS"))
     log_result("Has DEFAULT_MODEL", hasattr(embedder, "DEFAULT_MODEL"))
     log_result("Has EMBEDDING_VERSION", hasattr(embedder, "EMBEDDING_VERSION"))
     log_result("Has embed_chunks function", callable(getattr(embedder, "embed_chunks", None)))
     log_result("Has _embed_batch_raw function", callable(getattr(embedder, "_embed_batch_raw", None)))
-
-    # Model config
-    models = embedder.EMBEDDING_MODELS
-    log_result("text-embedding-3-small defined",
-               "text-embedding-3-small" in models,
-               f"dim={models.get('text-embedding-3-small', {}).get('dim')}")
-    log_result("text-embedding-3-large defined",
-               "text-embedding-3-large" in models,
-               f"dim={models.get('text-embedding-3-large', {}).get('dim')}")
 
 
 # ===================================================================
@@ -218,17 +208,15 @@ def test_embedder_module():
 
 def test_model_config():
     section("5. MODEL CONFIGURATION")
-    from embedding.embedder import EMBEDDING_MODELS
+    from config.settings import settings
+    from embedding.embedder import DEFAULT_MODEL, EMBEDDING_VERSION
 
-    for name, config in EMBEDDING_MODELS.items():
-        log_result(f"{name}: dim={config['dim']}",
-                   config["dim"] > 0 and config["max_tokens"] > 0)
-
-    # Default model exists
-    from embedding.embedder import DEFAULT_MODEL
-    log_result("Default model is valid",
-               DEFAULT_MODEL in EMBEDDING_MODELS,
-               f"default = {DEFAULT_MODEL}")
+    log_result("DEFAULT_MODEL loaded from settings",
+               DEFAULT_MODEL == settings.EMBEDDING_MODEL,
+               f"model = {DEFAULT_MODEL}")
+    log_result("EMBEDDING_VERSION is positive int",
+               isinstance(EMBEDDING_VERSION, int) and EMBEDDING_VERSION > 0,
+               f"version = {EMBEDDING_VERSION}")
 
 
 # ===================================================================
@@ -287,9 +275,7 @@ def test_live_embedding():
         log_skip("Live embedding", "OPENAI_API_KEY not set in .env — skipping")
         return
 
-    from embedding.embedder import embed_chunks, DEFAULT_MODEL, EMBEDDING_MODELS
-
-    expected_dim = EMBEDDING_MODELS[DEFAULT_MODEL]["dim"]
+    from embedding.embedder import embed_chunks, DEFAULT_MODEL
 
     # Simple chunks
     chunks = [
@@ -312,14 +298,15 @@ def test_live_embedding():
     log_result("embedded = 2", result["embedded"] == 2)
     log_result("failed = 0", result["failed"] == 0)
     log_result(f"Model = {DEFAULT_MODEL}", result["embedding_model"] == DEFAULT_MODEL)
-    log_result(f"Dimension = {expected_dim}", result["embedding_dim"] == expected_dim)
+    log_result("Dimension > 0", result["embedding_dim"] > 0, f"dim = {result['embedding_dim']}")
 
     embedded = result["chunks"]
     if embedded:
         e = embedded[0]
+        dim = len(e.get("embedding", []))
         log_result("Chunk has embedding vector",
-                   isinstance(e["embedding"], list) and len(e["embedding"]) == expected_dim,
-                   f"dim = {len(e.get('embedding', []))}")
+                   isinstance(e["embedding"], list) and dim > 0,
+                   f"dim = {dim}")
         log_result("Chunk has content_hash", len(e.get("content_hash", "")) == 64)
         log_result("Chunk has embedded_at", e.get("embedded_at") is not None)
         log_result("Chunk has embedding_model", e.get("embedding_model") == DEFAULT_MODEL)
@@ -411,7 +398,7 @@ def test_full_pipeline():
         from ingestion.pdf_extractor import extract_document
         from ingestion.text_cleaner import clean_document
         from ingestion.chunker import chunk_document
-        from embedding.embedder import embed_chunks, EMBEDDING_MODELS, DEFAULT_MODEL
+        from embedding.embedder import embed_chunks, DEFAULT_MODEL
         from embedding.cache import init_cache, close_cache, clear_cache
 
         TEST_DIR.mkdir(parents=True, exist_ok=True)
@@ -443,14 +430,14 @@ def test_full_pipeline():
             sample_chunks = chunked["chunks"][:10]
             result = embed_chunks(sample_chunks, use_cache=True)
 
-            expected_dim = EMBEDDING_MODELS[DEFAULT_MODEL]["dim"]
             log_result("Embedded", result["embedded"] + result["cached"] > 0,
                        f"embedded={result['embedded']}, cached={result['cached']}, failed={result['failed']}")
-            log_result(f"Dimension = {expected_dim}", result["embedding_dim"] == expected_dim)
+            log_result("Dimension > 0", result["embedding_dim"] > 0, f"dim={result['embedding_dim']}")
 
             # Verify vectors
             if result["chunks"]:
                 e = result["chunks"][0]
+                expected_dim = result["embedding_dim"]
                 log_result("Vector has correct dim",
                            len(e["embedding"]) == expected_dim)
                 log_result("Has content_hash", len(e["content_hash"]) == 64)

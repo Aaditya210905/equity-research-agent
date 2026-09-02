@@ -22,6 +22,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from config.settings import settings
+
 # ---------------------------------------------------------------------------
 PASS = "[PASS]"
 FAIL = "[FAIL]"
@@ -155,7 +157,7 @@ def test_schemas():
         company="TCS", ticker="TCS", sector="IT Services",
         executive_summary=sec,
         overall_confidence=0.82,
-        model="gpt-4o-mini",
+        model=settings.LLM_MODEL,
         generated_at="2025-07-30T00:00:00Z",
         financial_health_score=87.8,
         sections_generated=7,

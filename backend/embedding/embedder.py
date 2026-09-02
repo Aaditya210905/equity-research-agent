@@ -33,20 +33,18 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
+
+from config.settings import settings
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Model configuration
+# Model configuration (from settings)
 # ---------------------------------------------------------------------------
 
-EMBEDDING_MODELS = {
-    "text-embedding-3-small": {"dim": 1536, "max_tokens": 8191, "batch_max": 2048},
-    "text-embedding-3-large": {"dim": 3072, "max_tokens": 8191, "batch_max": 2048},
-    "text-embedding-ada-002":  {"dim": 1536, "max_tokens": 8191, "batch_max": 2048},
-}
-
-DEFAULT_MODEL = "text-embedding-3-small"
+DEFAULT_MODEL = settings.EMBEDDING_MODEL
 EMBEDDING_VERSION = 1
+BATCH_MAX = 2048
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -55,33 +53,35 @@ RETRY_MAX_DELAY = 30.0   # seconds
 
 
 # ---------------------------------------------------------------------------
-# OpenAI client (lazy singleton)
+# Hugging Face client (lazy singleton)
 # ---------------------------------------------------------------------------
 _client = None
 
 
 def _get_client():
-    """Lazily initialize the OpenAI client."""
+    """Lazily initialize the Hugging Face Inference client."""
     global _client
     if _client is not None:
         return _client
 
     try:
-        from openai import OpenAI
+        from huggingface_hub import InferenceClient
     except ImportError:
-        raise RuntimeError("openai package not installed. Run: pip install openai")
+        raise RuntimeError("huggingface_hub package not installed. Run: pip install huggingface_hub")
 
-    from config.settings import settings
-    api_key = settings.OPENAI_API_KEY
+    hf_token = settings.HF_TOKEN
 
-    if not api_key:
+    if not hf_token:
         raise RuntimeError(
-            "OPENAI_API_KEY not set. Add it to backend/config/.env\n"
-            "Get a key at https://platform.openai.com/api-keys"
+            "HF_TOKEN not set. Add it to backend/config/.env\n"
+            "Get a key at https://huggingface.co/settings/tokens"
         )
 
-    _client = OpenAI(api_key=api_key)
-    logger.info("OpenAI client initialized")
+    _client = InferenceClient(
+        provider="hf-inference",
+        api_key=hf_token
+    )
+    logger.info("Hugging Face client initialized")
     return _client
 
 
@@ -91,16 +91,16 @@ def _get_client():
 
 def _embed_batch_raw(
     texts: list[str],
-    model: str = DEFAULT_MODEL,
+    model: str = None,
 ) -> list[list[float]]:
-    """Call OpenAI embedding API for a batch of texts.
+    """Call Hugging Face embedding API for a batch of texts.
 
     Parameters
     ----------
     texts : list[str]
         Texts to embed (max 2048 per call).
-    model : str
-        Model identifier.
+    model : str, optional
+        Model identifier. Defaults to settings.EMBEDDING_MODEL.
 
     Returns
     -------
@@ -112,25 +112,29 @@ def _embed_batch_raw(
     RuntimeError
         If all retries are exhausted.
     """
+    model = model or settings.EMBEDDING_MODEL
     client = _get_client()
-    model_info = EMBEDDING_MODELS.get(model, EMBEDDING_MODELS[DEFAULT_MODEL])
 
-    if len(texts) > model_info["batch_max"]:
+    if len(texts) > BATCH_MAX:
         raise ValueError(
-            f"Batch too large: {len(texts)} > {model_info['batch_max']}"
+            f"Batch too large: {len(texts)} > {BATCH_MAX}"
         )
 
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            response = client.embeddings.create(
-                input=texts,
+            response = client.feature_extraction(
+                texts,
                 model=model,
             )
-            # Sort by index to preserve input order
-            embeddings = [None] * len(texts)
-            for item in response.data:
-                embeddings[item.index] = item.embedding
+            
+            # HuggingFace feature_extraction returns a numpy array or list.
+            # Convert to list of lists of floats.
+            import numpy as np
+            if isinstance(response, np.ndarray):
+                embeddings = response.tolist()
+            else:
+                embeddings = response
 
             return embeddings
 
@@ -139,8 +143,8 @@ def _embed_batch_raw(
             error_name = type(exc).__name__
 
             # Don't retry on auth errors
-            if "authentication" in str(exc).lower() or "api key" in str(exc).lower():
-                raise RuntimeError(f"OpenAI authentication failed: {exc}") from exc
+            if "authentication" in str(exc).lower() or "token" in str(exc).lower() or "402" in str(exc):
+                raise RuntimeError(f"Hugging Face authentication or billing failed: {exc}") from exc
 
             delay = min(RETRY_BASE_DELAY * (2 ** (attempt - 1)), RETRY_MAX_DELAY)
             logger.warning(
@@ -160,10 +164,10 @@ def _embed_batch_raw(
 
 def embed_chunks(
     chunks: list[dict],
-    model: str = DEFAULT_MODEL,
+    model: str = None,
     version: int = EMBEDDING_VERSION,
     use_cache: bool = True,
-    batch_size: int = 100,
+    batch_size: int = None,
 ) -> dict:
     """Embed a list of chunks with caching and batch processing.
 
@@ -174,14 +178,14 @@ def embed_chunks(
     chunks : list[dict]
         Chunk dicts from chunker.chunk_document()["chunks"].
         Each must have "chunk_id" and "text".
-    model : str
-        Embedding model to use.
+    model : str, optional
+        Embedding model to use. Defaults to settings.EMBEDDING_MODEL.
     version : int
         Embedding version tag.
     use_cache : bool
         Whether to check the cache before calling the API.
-    batch_size : int
-        Number of chunks per API batch call (max 2048).
+    batch_size : int, optional
+        Number of chunks per API batch call. Defaults to settings.EMBEDDING_BATCH_SIZE.
 
     Returns
     -------
@@ -193,20 +197,18 @@ def embed_chunks(
                 "embedded": 130,
                 "cached": 20,
                 "failed": 0,
-                "embedding_model": "text-embedding-3-small",
+                "embedding_model": "...",
                 "embedding_dim": 1536,
                 "embedding_version": 1,
                 "chunks": [ ... EmbeddedChunk dicts ... ]
             }
     """
-    from embedding.cache import hash_text, get_cached, put_cached, init_cache
+    from embedding.cache import hash_text, get_cached, put_cached
 
-    if use_cache:
-        init_cache()
+    model = model or settings.EMBEDDING_MODEL
+    batch_size = batch_size or int(settings.EMBEDDING_BATCH_SIZE or 100)
 
-    model_info = EMBEDDING_MODELS.get(model, EMBEDDING_MODELS[DEFAULT_MODEL])
-    dim = model_info["dim"]
-
+    dim = 0
     results: list[dict] = []
     cached_count = 0
     embedded_count = 0
@@ -227,8 +229,10 @@ def embed_chunks(
 
         if cached_vector is not None:
             # Cache hit
+            chunk_dim = len(cached_vector)
+            dim = dim or chunk_dim
             results.append(_build_embedded_chunk(
-                chunk, cached_vector, model, dim, version, content_hash,
+                chunk, cached_vector, model, chunk_dim, version, content_hash,
             ))
             cached_count += 1
             logger.debug("Cache hit: %s", chunk_id)
@@ -253,19 +257,22 @@ def embed_chunks(
                 vectors = _embed_batch_raw(batch_texts, model)
 
                 for (result_idx, chunk, content_hash), vector in zip(batch, vectors):
+                    chunk_dim = len(vector) if vector else 0
+                    dim = dim or chunk_dim
+
                     # Store in cache
-                    if use_cache:
+                    if use_cache and vector:
                         put_cached(
                             content_hash,
                             chunk.get("chunk_id", ""),
                             vector,
                             model,
-                            dim,
+                            chunk_dim,
                             version,
                         )
 
                     results[result_idx] = _build_embedded_chunk(
-                        chunk, vector, model, dim, version, content_hash,
+                        chunk, vector, model, chunk_dim, version, content_hash,
                     )
                     embedded_count += 1
 
@@ -278,7 +285,7 @@ def embed_chunks(
                     )
                     failed_count += 1
 
-    # Filter out None placeholders (shouldn't happen but safety)
+    # Filter out None placeholders (safety)
     results = [r for r in results if r is not None]
 
     logger.info(
@@ -314,6 +321,7 @@ def _build_embedded_chunk(
     error: str = None,
 ) -> dict:
     """Assemble an EmbeddedChunk-compatible dict."""
+    vector_dim = len(vector) if vector else (dim or 0)
     return {
         # Original chunk metadata
         "chunk_id": chunk.get("chunk_id", ""),
@@ -334,7 +342,8 @@ def _build_embedded_chunk(
         "embedding": vector,
         "embedding_model": model,
         "embedding_version": version,
-        "embedding_dim": dim if vector else 0,
+        "embedding_dim": vector_dim,
         "content_hash": content_hash,
         "embedded_at": datetime.now(timezone.utc).isoformat(),
     }
+

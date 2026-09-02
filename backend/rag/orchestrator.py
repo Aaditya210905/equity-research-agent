@@ -197,14 +197,9 @@ def ask(
 ) -> dict:
     """Answer a question using the full RAG pipeline.
 
-    This is the main entry point. It coordinates:
-        1. Question classification
-        2. Query expansion / rewriting
-        3. Retrieval
-        4. Context assembly
-        5. Prompt building
-        6. LLM answer generation
-        7. Confidence scoring
+    Delegates to the LangGraph RAG Graph which runs:
+        classify → expand → retrieve → build_context →
+        [route] → build_prompt → generate → confidence → respond
 
     Parameters
     ----------
@@ -226,108 +221,16 @@ def ask(
     Returns
     -------
     dict
-        RAGAnswer-compatible dict::
-
-            {
-                "answer": "Revenue increased...",
-                "citations": [...],
-                "confidence": 0.85,
-                "confidence_tier": "high",
-                "question_type": "factual",
-                "evidence_sufficient": True,
-                ...
-            }
+        RAGAnswer-compatible dict.
     """
-    from retrieval.retriever import retrieve
-    from rag.context_builder import build_context
-    from rag.prompt_builder import build_prompt
-    from rag.confidence import compute_confidence
-    from config.settings import settings
+    from graph.rag_graph import run_rag
+    return run_rag(
+        question=question,
+        company=company,
+        year=year,
+        doc_type=doc_type,
+        collection=collection,
+        top_k=top_k,
+        rewrite_query=rewrite_query,
+    )
 
-    model = getattr(settings, "LLM_MODEL", "gpt-4o-mini")
-    start_time = time.time()
-
-    # --- Step 1: Classify question ---
-    question_type = classify_question(question)
-    logger.info("Question type: %s", question_type)
-
-    # --- Step 2: Query expansion ---
-    if rewrite_query:
-        query_used = rewrite_query_with_llm(question, company=company)
-    else:
-        query_used = expand_query(question)
-    logger.info("Query: '%s'", query_used[:100])
-
-    # --- Step 3: Retrieve ---
-    retrieval_kwargs = {
-        "query": query_used,
-        "top_k": top_k,
-        "min_score": 0.0,
-    }
-    if company:
-        retrieval_kwargs["company"] = company
-    if year is not None:
-        retrieval_kwargs["year"] = year
-    if doc_type:
-        retrieval_kwargs["doc_type"] = doc_type
-    if collection:
-        retrieval_kwargs["collection"] = collection
-
-    retrieval_result = retrieve(**retrieval_kwargs)
-    hits = retrieval_result.get("hits", [])
-    logger.info("Retrieved %d chunks", len(hits))
-
-    # --- Step 4: Build context ---
-    context = build_context(hits)
-    context_text = context["context_text"]
-    citations = context["citations"]
-    chunks_used = context["chunks_used"]
-
-    # --- Step 5: Handle insufficient evidence ---
-    if not context_text.strip():
-        conf = compute_confidence([], 0, top_k)
-        return {
-            "answer": (
-                "The available documents do not contain sufficient information "
-                "to answer this question. Please ensure relevant documents have "
-                "been indexed for this company."
-            ),
-            "citations": [],
-            "confidence": conf["score"],
-            "confidence_tier": conf["tier"],
-            "question": question,
-            "question_type": question_type,
-            "query_used": query_used,
-            "chunks_retrieved": len(hits),
-            "chunks_used": 0,
-            "model": model,
-            "evidence_sufficient": False,
-        }
-
-    # --- Step 6: Build prompt ---
-    prompt = build_prompt(question, context_text, question_type)
-
-    # --- Step 7: Generate answer ---
-    answer_text = _generate_answer(prompt["system"], prompt["user"], model)
-
-    # --- Step 8: Compute confidence ---
-    retrieval_scores = [h.get("score", 0.0) for h in hits[:chunks_used]]
-    conf = compute_confidence(retrieval_scores, chunks_used, top_k)
-
-    elapsed = time.time() - start_time
-    logger.info("Answer generated in %.1fs, confidence=%s (%.2f)",
-                elapsed, conf["tier"], conf["score"])
-
-    return {
-        "answer": answer_text,
-        "citations": citations,
-        "confidence": conf["score"],
-        "confidence_tier": conf["tier"],
-        "question": question,
-        "question_type": question_type,
-        "query_used": query_used,
-        "chunks_retrieved": len(hits),
-        "chunks_used": chunks_used,
-        "model": model,
-        "evidence_sufficient": conf["evidence_sufficient"],
-    }

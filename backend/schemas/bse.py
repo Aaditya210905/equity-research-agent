@@ -5,7 +5,10 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-FilingKind = Literal["annual-reports", "quarterly-reports", "announcements"]
+FilingKind = Literal[
+    "annual_reports", "quarterly_reports", "announcements",
+    "annual-reports", "quarterly-reports", "annual_report", "quarterly_report"
+]
 
 
 class CompanyHit(BaseModel):

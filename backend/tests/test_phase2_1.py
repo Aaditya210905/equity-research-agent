@@ -146,8 +146,9 @@ def test_pdf_extraction():
     try:
         from ingestion.pdf_extractor import extract_pdf
 
-        num_pages = 20
-        pdf_path = _create_test_pdf(TEST_DIR / "test_report.pdf", num_pages)
+        num_pages = 422
+        #pdf_path = _create_test_pdf(TEST_DIR / "test_report.pdf", num_pages)
+        pdf_path = Path(r"C:\Users\aadit\Desktop\projects\equity-research-agent\backend\documents\ETERNAL\annual_reports\FY-2026_Annual-Report.pdf")
         log_result("Test PDF created", pdf_path.exists(),
                    f"size = {pdf_path.stat().st_size:,} bytes")
 

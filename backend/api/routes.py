@@ -2,32 +2,37 @@
 API routes for the Equity Research Agent.
 
 Phase 1.1:
-    GET  /company/{ticker}            -> CompanyOverview
+    GET  /company/{ticker}               -> CompanyOverview
 
 Phase 1.2:
-    GET  /market/{ticker}             -> MarketSnapshot
-    GET  /market/{ticker}/history     -> PriceHistory
+    GET  /market/{ticker}                -> MarketSnapshot
+    GET  /market/{ticker}/history        -> PriceHistory
 
 Phase 1.3:
-    POST /documents/{ticker}/collect  -> CollectionResult
-    GET  /documents/{ticker}          -> DocumentCollection
+    POST /documents/{ticker}/collect     -> CollectionResult  (LangGraph: parallel)
+    GET  /documents/{ticker}/stream      -> SSE stream of ingestion events
+    GET  /documents/{ticker}             -> DocumentCollection
 
 Phase 1.4 (BSE filings):
-    GET  /bse/search                  -> list[CompanyHit]
-    POST /bse/filings/fetch           -> FetchResult
-    GET  /bse/filings                 -> list[CompanyFolder]
-    GET  /bse/file/{file_path}        -> PDF FileResponse
+    GET  /bse/search                     -> list[CompanyHit]
+    POST /bse/filings/fetch              -> FetchResult
+    GET  /bse/filings                    -> list[CompanyFolder]
+    GET  /bse/file/{file_path}           -> PDF FileResponse
 
 Phase 2.6:
-    POST /ask                         -> RAGAnswer
+    POST /ask                            -> RAGAnswer  (LangGraph: conditional routing)
+    POST /ask/stream                     -> SSE stream of RAG events
 
-Phase 4:
-    POST /research/{ticker}           -> ResearchReport
+Phase 4/5:
+    POST /research/{ticker}              -> ResearchReport  (LangGraph: parallel evidence)
+    GET  /research/{ticker}/stream       -> SSE stream of research events
 """
 
+import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from connectors.yahoo_finance import YahooFinanceError
 from connectors.market import MarketDataError
@@ -159,7 +164,7 @@ async def get_price_history(
     summary="Collect documents for a company",
     description=(
         "Triggers document collection from all available sources "
-        "(SEC EDGAR, Yahoo Finance). Downloads files, validates them, "
+        "(Yahoo Finance, SEC EDGAR, BSE India). Downloads files, validates them, "
         "and registers metadata in the document database."
     ),
 )
@@ -373,3 +378,131 @@ async def generate_research_report(ticker: str, request: ResearchRequest = None)
             status_code=500,
             detail=f"Failed to generate research report for '{ticker.upper()}'.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Streaming SSE endpoints (LangGraph graph.stream())
+# ---------------------------------------------------------------------------
+
+def _sse(data: dict) -> str:
+    """Format a dict as a Server-Sent Event line."""
+    return f"data: {json.dumps(data)}\n\n"
+
+
+def _safe_next(gen):
+    """Helper to avoid raising StopIteration inside ThreadPoolExecutor."""
+    try:
+        return next(gen)
+    except StopIteration:
+        return None
+
+
+@router.get(
+    "/documents/{ticker}/stream",
+    tags=["Documents"],
+    summary="Stream document ingestion events (SSE)",
+    description=(
+        "Streams real-time progress events from the LangGraph Ingestion Graph via "
+        "Server-Sent Events. Each event is a JSON object with 'node' and 'data' keys. "
+        "Sources (Yahoo Finance, SEC EDGAR, BSE India) run in parallel."
+    ),
+)
+async def stream_document_ingestion(ticker: str):
+    """Stream ingestion graph events via SSE."""
+    from graph.ingestion_graph import stream_ingestion
+    import asyncio
+
+    async def event_generator():
+        try:
+            loop = asyncio.get_event_loop()
+            # Run sync generator in thread pool to avoid blocking
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                gen = stream_ingestion(ticker.upper())
+                while True:
+                    event = await loop.run_in_executor(pool, _safe_next, gen)
+                    if event is None:
+                        break
+                    yield _sse(event)
+        except Exception as exc:
+            yield _sse({"node": "error", "data": {"error": str(exc)}})
+        yield _sse({"node": "done", "data": {}})
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post(
+    "/ask/stream",
+    tags=["RAG"],
+    summary="Stream RAG pipeline events (SSE)",
+    description=(
+        "Streams real-time progress events from the LangGraph RAG Graph via "
+        "Server-Sent Events. Events are emitted as each node completes: "
+        "classify → expand → retrieve → build_context → generate → respond."
+    ),
+)
+async def stream_rag_answer(body: dict):
+    """Stream RAG graph events via SSE."""
+    from graph.rag_graph import stream_rag
+    import asyncio
+
+    async def event_generator():
+        try:
+            loop = asyncio.get_event_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                gen = stream_rag(
+                    question=body.get("question", ""),
+                    company=body.get("company"),
+                    year=body.get("year"),
+                    doc_type=body.get("doc_type"),
+                    collection=body.get("collection"),
+                    top_k=body.get("top_k", 10),
+                    rewrite_query=body.get("rewrite_query", False),
+                )
+                while True:
+                    event = await loop.run_in_executor(pool, _safe_next, gen)
+                    if event is None:
+                        break
+                    yield _sse(event)
+        except Exception as exc:
+            yield _sse({"node": "error", "data": {"error": str(exc)}})
+        yield _sse({"node": "done", "data": {}})
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get(
+    "/research/{ticker}/stream",
+    tags=["Research"],
+    summary="Stream research report generation events (SSE)",
+    description=(
+        "Streams real-time progress events from the LangGraph Research Graph via "
+        "Server-Sent Events. Evidence gathering (financial, market, retriever, news) "
+        "runs in parallel. Events are emitted as each node completes."
+    ),
+)
+async def stream_research_report(ticker: str):
+    """Stream research graph events via SSE."""
+    from graph.research_graph import stream_research
+    import asyncio
+
+    async def event_generator():
+        try:
+            loop = asyncio.get_event_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                gen = stream_research(
+                    request=f"Generate a comprehensive equity research report for {ticker.upper()}",
+                    companies=[ticker.upper()],
+                )
+                while True:
+                    event = await loop.run_in_executor(pool, _safe_next, gen)
+                    if event is None:
+                        break
+                    yield _sse(event)
+        except Exception as exc:
+            yield _sse({"node": "error", "data": {"error": str(exc)}})
+        yield _sse({"node": "done", "data": {}})
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

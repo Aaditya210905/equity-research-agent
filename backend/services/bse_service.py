@@ -11,7 +11,7 @@ from schemas.bse import CompanyFolder, FetchOptions, FetchResult, StoredFile
 from services.bse_storage import company_dir, company_folder_name, relative_path, unique_file_name, write_manifest
 
 
-KINDS = ("annual-reports", "quarterly-reports", "announcements")
+KINDS = ("annual_reports", "quarterly_reports", "announcements")
 
 
 def headline(row: dict[str, Any]) -> str:
@@ -66,7 +66,7 @@ async def ingest_company(options: FetchOptions) -> FetchResult:
                 continue
             seen.add(attachment)
             year = str(row.get("year", "unknown"))
-            files.append(await save_pdf(directory, "annual-reports", f"FY-{year}_Annual-Report.pdf", row, attachment, log))
+            files.append(await save_pdf(directory, "annual_reports", f"FY-{year}_Annual-Report.pdf", row, attachment, log))
             await asyncio.sleep(0.18)
 
     if options.quarterly:
@@ -79,7 +79,7 @@ async def ingest_company(options: FetchOptions) -> FetchResult:
                 continue
             seen.add(attachment)
             when = str(row.get("DissemDT") or row.get("DT_TM") or row.get("NEWS_DT") or "")
-            item = await save_pdf(directory, "quarterly-reports", unique_file_name(when, headline(row), attachment), row, attachment, log)
+            item = await save_pdf(directory, "quarterly_reports", unique_file_name(when, headline(row), attachment), row, attachment, log)
             files.append(item)
             saved += int(item.saved)
             await asyncio.sleep(0.15)
@@ -121,5 +121,5 @@ async def ingest_company(options: FetchOptions) -> FetchResult:
         totalBytes=sum(item.bytes for item in files if item.saved),
     )
     write_manifest(directory, company)
-    log.append(f"done - {counts['annual-reports']} annual, {counts['quarterly-reports']} quarterly, {counts['announcements']} announcements")
+    log.append(f"done - {counts.get('annual_reports', 0)} annual, {counts.get('quarterly_reports', 0)} quarterly, {counts.get('announcements', 0)} announcements")
     return FetchResult(company=company, log=log)

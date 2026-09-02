@@ -8,7 +8,7 @@ from schemas.bse import CompanyFolder, FilingKind
 
 
 # Store BSE filings alongside other documents in the project's documents/ folder
-FILINGS_ROOT = Path(__file__).resolve().parent.parent / "documents" / "bse"
+FILINGS_ROOT = Path(__file__).resolve().parent.parent / "documents"
 
 
 def slug(value: str, maximum: int = 72) -> str:
@@ -19,7 +19,7 @@ def slug(value: str, maximum: int = 72) -> str:
 
 
 def company_folder_name(scrip_code: str, symbol: str) -> str:
-    return f"{scrip_code}-{slug(symbol or scrip_code).upper()}"
+    return slug(symbol or scrip_code).upper()
 
 
 def company_dir(scrip_code: str, symbol: str) -> Path:
@@ -74,7 +74,7 @@ def list_company_folders() -> list[CompanyFolder]:
                 folder=directory.name,
                 fetchedAt="",
                 files=[],
-                counts={kind: 0 for kind in ("annual-reports", "quarterly-reports", "announcements")},
+                counts={kind: 0 for kind in ("annual_reports", "quarterly_reports", "announcements")},
                 totalBytes=0,
             )
         )

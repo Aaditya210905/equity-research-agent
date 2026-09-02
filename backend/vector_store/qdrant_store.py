@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 DEFAULT_COLLECTION = "financial_documents"
-DEFAULT_VECTOR_SIZE = 1536  # text-embedding-3-small
+DEFAULT_VECTOR_SIZE = 768  # google/embeddinggemma-300m
 
 # Payload keys to index for fast filtering
 _INDEXED_FIELDS = {

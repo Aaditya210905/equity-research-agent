@@ -17,9 +17,9 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
-# Load .env from the config/ directory (co-located with this file)
+# Load .env from the project root directory
 # ---------------------------------------------------------------------------
-_env_path = Path(__file__).resolve().parent / ".env"
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(_env_path)
 
 
@@ -42,10 +42,19 @@ class Settings(BaseModel):
         default="",
         description="OpenAI API key for LLM calls (added in later phases)",
     )
+    OPENAI_BASE_URL: str = Field(
+        default="",
+        description="OpenAI base URL for LLM calls",
+    )
+    HF_TOKEN: str = Field(
+        default="",
+        description="Hugging Face API token",
+    )
     NEWS_API_KEY: str = Field(
         default="",
         description="News API key for financial news retrieval",
     )
+
 
     # --- Server ---
     HOST: str = Field(default="127.0.0.1", description="FastAPI server host")
@@ -76,7 +85,6 @@ class Settings(BaseModel):
 
     # --- Embedding (Phase 2.4) ---
     EMBEDDING_MODEL: str = Field(
-        default="text-embedding-3-small",
         description="OpenAI embedding model to use",
     )
     EMBEDDING_BATCH_SIZE: int = Field(
@@ -115,6 +123,11 @@ def _load_settings() -> Settings:
         ALPHA_VANTAGE_API_KEY=os.getenv("ALPHA_VANTAGE_API_KEY", ""),
         OPENAI_API_KEY=os.getenv("OPENAI_API_KEY", ""),
         NEWS_API_KEY=os.getenv("NEWS_API_KEY", ""),
+        OPENAI_BASE_URL=os.getenv("OPENAI_BASE_URL", ""),
+        HF_TOKEN=os.getenv("HF_TOKEN", ""),
+        LLM_MODEL=os.getenv("LLM_MODEL", ""),
+        EMBEDDING_MODEL=os.getenv("EMBEDDING_MODEL", ""),
+        EMBEDDING_BATCH_SIZE=int(os.getenv("EMBEDDING_BATCH_SIZE", 100) or 100),
     )
 
 

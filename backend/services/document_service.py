@@ -37,6 +37,8 @@ from typing import Optional
 from models.document import Document, initialize_db, DOC_TYPES
 from connectors import sec_edgar, yahoo_finance
 from connectors.sec_edgar import SECEdgarError
+import asyncio
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
@@ -357,16 +359,153 @@ def _collect_financial_statements(ticker: str) -> dict:
     return result
 
 
-# ===========================================================================
-# Public API
-# ===========================================================================
+# ---------------------------------------------------------------------------
+# BSE India Filings Collection
+# ---------------------------------------------------------------------------
+
+async def _fetch_bse_filings(ticker: str) -> dict:
+    """Async inner function: search BSE for ticker, fetch and save filings."""
+    from connectors.bse import search_companies
+    from services.bse_service import ingest_company
+    from schemas.bse import FetchOptions
+
+    # Search BSE for the company by ticker symbol
+    hits = await search_companies(ticker)
+    if not hits:
+        logger.info("No BSE listing found for '%s' — skipping BSE collection", ticker)
+        return {"new": 0, "existing": 0, "failed": 0, "documents": []}
+
+    # Use the first (best) match
+    hit = hits[0]
+    logger.info("BSE match for '%s': %s (scrip %s)", ticker, hit.name, hit.scripCode)
+
+    options = FetchOptions(
+        scripCode=hit.scripCode,
+        name=hit.name,
+        symbol=hit.symbol or ticker,
+        annual=True,
+        quarterly=True,
+        announcements=True,
+        annualLimit=3,
+        quarterlyLimit=8,
+        announcementLimit=20,
+        announcementDays=90,
+    )
+    result = await ingest_company(options)
+    return {"fetch_result": result, "hit": hit}
+
+
+def _collect_bse_filings(ticker: str) -> dict:
+    """Download BSE filings for an Indian company and register them.
+
+    Returns
+    -------
+    dict
+        {"new": int, "existing": int, "failed": int, "documents": list}
+    """
+    result = {"new": 0, "existing": 0, "failed": 0, "documents": []}
+    ticker_upper = ticker.strip().upper()
+
+    def _run_in_new_thread():
+        """Run async BSE fetch in a fresh thread with its own event loop."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(_fetch_bse_filings(ticker_upper))
+        finally:
+            loop.close()
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_run_in_new_thread)
+            raw = future.result(timeout=180)  # 3 min max for BSE downloads
+    except concurrent.futures.TimeoutError:
+        logger.warning("BSE collection timed out for '%s'", ticker_upper)
+        return result
+    except Exception as exc:
+        logger.warning("BSE collection failed for '%s': %s", ticker_upper, exc)
+        return result
+
+    fetch_result = raw.get("fetch_result")
+    hit = raw.get("hit")
+    if not fetch_result or not hit:
+        return result
+
+    company_folder = fetch_result.company
+    company_name = company_folder.name
+
+    # Register each saved file in the document DB
+    for stored_file in company_folder.files:
+        if not stored_file.saved:
+            continue
+
+        # Map BSE kind → doc_type used in the rest of the project
+        kind_map = {
+            "annual_reports": "annual_report",
+            "quarterly_reports": "quarterly_report",
+            "announcements": "announcement",
+        }
+        doc_type = kind_map.get(stored_file.kind, stored_file.kind)
+
+        # Derive year from disseminatedAt or filename
+        year = 0
+        date_str = stored_file.disseminatedAt or stored_file.fileName
+        if date_str[:4].isdigit():
+            year = int(date_str[:4])
+
+        doc_id = f"{ticker_upper}_{doc_type}_{year}_bse_{stored_file.newsId[:8]}"
+
+        if _doc_exists(doc_id):
+            result["existing"] += 1
+            try:
+                doc = Document.get_by_id(doc_id)
+                result["documents"].append(_document_to_dict(doc))
+            except Exception:
+                pass
+            continue
+
+        # Resolve absolute path from relative path stored in StoredFile
+        from services.bse_storage import FILINGS_ROOT
+        file_path_abs = FILINGS_ROOT / stored_file.relativePath
+        rel_path = str(file_path_abs.relative_to(_BACKEND_DIR)) if file_path_abs.exists() else stored_file.relativePath
+
+        checksum = _compute_sha256(file_path_abs) if file_path_abs.exists() else None
+        file_size = file_path_abs.stat().st_size if file_path_abs.exists() else stored_file.bytes
+
+        try:
+            doc = _register_document(
+                document_id=doc_id,
+                ticker=ticker_upper,
+                doc_type=doc_type,
+                title=stored_file.headline or stored_file.fileName,
+                year=year,
+                file_path=rel_path,
+                file_size=file_size,
+                source="bse",
+                checksum_sha256=checksum,
+                company_name=company_name,
+                processing_status="verified",
+            )
+            result["new"] += 1
+            result["documents"].append(_document_to_dict(doc))
+        except Exception as exc:
+            logger.error("Failed to register BSE doc '%s': %s", doc_id, exc)
+            result["failed"] += 1
+
+    logger.info(
+        "BSE collection complete for '%s': %d new, %d existing, %d failed",
+        ticker_upper, result["new"], result["existing"], result["failed"],
+    )
+    return result
+
+
+
 
 def collect_documents(ticker: str) -> dict:
     """Collect all available documents for a company.
 
-    Tries all available sources:
-        1. Financial statements from Yahoo Finance
-        2. SEC EDGAR filings (10-K, 10-Q) for US companies
+    Delegates to the LangGraph Ingestion Graph which runs all three
+    sources (Yahoo Finance, SEC EDGAR, BSE India) in parallel.
 
     Parameters
     ----------
@@ -379,48 +518,9 @@ def collect_documents(ticker: str) -> dict:
         CollectionResult-compatible dict:
         {ticker, new_documents, existing_documents, failed, documents}
     """
-    initialize_db()
-    ticker_upper = ticker.strip().upper()
+    from graph.ingestion_graph import run_ingestion
+    return run_ingestion(ticker)
 
-    logger.info("Collecting documents for '%s'...", ticker_upper)
-
-    total_new = 0
-    total_existing = 0
-    total_failed = 0
-    all_documents: list[dict] = []
-
-    # 1. Yahoo Finance financial statements (works for any ticker)
-    try:
-        fin_result = _collect_financial_statements(ticker)
-        total_new += fin_result["new"]
-        total_existing += fin_result["existing"]
-        total_failed += fin_result["failed"]
-        all_documents.extend(fin_result["documents"])
-    except Exception as exc:
-        logger.error("Financial statements collection failed for '%s': %s", ticker, exc)
-
-    # 2. SEC EDGAR (US companies only — fails gracefully for non-US)
-    try:
-        sec_result = _collect_sec_filings(ticker)
-        total_new += sec_result["new"]
-        total_existing += sec_result["existing"]
-        total_failed += sec_result["failed"]
-        all_documents.extend(sec_result["documents"])
-    except Exception as exc:
-        logger.info("SEC EDGAR not available for '%s' (likely non-US): %s", ticker, exc)
-
-    logger.info(
-        "Collection complete for '%s': %d new, %d existing, %d failed",
-        ticker_upper, total_new, total_existing, total_failed,
-    )
-
-    return {
-        "ticker": ticker_upper,
-        "new_documents": total_new,
-        "existing_documents": total_existing,
-        "failed": total_failed,
-        "documents": all_documents,
-    }
 
 
 def get_company_documents(
