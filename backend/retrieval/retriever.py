@@ -244,8 +244,8 @@ def retrieve(
 
     query_text = query or ""
 
-    # Search with headroom for re-ranking
-    search_k = top_k * 2 if rerank else top_k
+    # Search with headroom for re-ranking and filtering out short header chunks
+    search_k = max(top_k * 4, 40)
 
     results = qdrant_search(
         query_vector=query_vector,
@@ -257,7 +257,12 @@ def retrieve(
         section=section,
         document_id=document_id,
         min_score=min_score,
+        min_tokens=20,
     )
+
+    # Filter out isolated short header chunks that contain no substantive narrative (e.g. single-word titles)
+    # Using 40 chars as a safe lower bound so we don't accidentally drop everything.
+    results = [r for r in results if len(r.get("text", "").strip()) >= 40]
 
     # Re-rank
     if rerank and results:

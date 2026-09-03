@@ -459,16 +459,16 @@ def _merge_undersized(chunks: list[dict]) -> list[dict]:
     while i < len(chunks):
         chunk = dict(chunks[i])
 
-        # If this chunk is too small and there's a next chunk in same section
-        while (chunk["token_count"] < MIN_TOKENS
-               and i + 1 < len(chunks)
-               and chunks[i + 1].get("section") == chunk.get("section")):
+        # If this chunk is too small, merge with the next chunk
+        while chunk["token_count"] < MIN_TOKENS and i + 1 < len(chunks):
             next_chunk = chunks[i + 1]
             chunk["text"] = chunk["text"] + "\n\n" + next_chunk["text"]
             chunk["token_count"] = estimate_tokens(chunk["text"])
             chunk["page_end"] = next_chunk.get("page_end") or chunk.get("page_end")
             chunk["has_heading"] = chunk.get("has_heading") or next_chunk.get("has_heading")
             chunk["contains_table"] = chunk.get("contains_table") or next_chunk.get("contains_table")
+            if next_chunk.get("section"):
+                chunk["section"] = chunk.get("section") or next_chunk.get("section")
             if next_chunk.get("subsection"):
                 chunk["subsection"] = next_chunk["subsection"]
             i += 1
@@ -476,7 +476,8 @@ def _merge_undersized(chunks: list[dict]) -> list[dict]:
         result.append(chunk)
         i += 1
 
-    return result
+    # Filter out any lingering tiny chunks (e.g. at the very end of document < 30 tokens)
+    return [c for c in result if c["token_count"] >= 30 or len(c["text"].strip()) >= 100]
 
 
 # ---------------------------------------------------------------------------

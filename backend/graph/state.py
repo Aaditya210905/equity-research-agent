@@ -20,6 +20,10 @@ class IngestionState(TypedDict):
     """State for the document ingestion pipeline."""
     ticker: str
 
+    # Exchange detected in node_init: "us" | "in" | "unknown"
+    # Used to prevent cross-exchange ticker collisions (e.g. AAPL on BSE India)
+    exchange: str
+
     # Parallel source results — each node appends one dict; operator.add merges them
     collection_results: Annotated[list[dict], operator.add]
     errors: Annotated[list[str], operator.add]

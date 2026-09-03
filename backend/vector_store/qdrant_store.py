@@ -299,6 +299,7 @@ def build_filter(
     doc_type: str = None,
     section: str = None,
     document_id: str = None,
+    min_tokens: int = None,
 ) -> Optional[models.Filter]:
     """Build a Qdrant filter from metadata constraints.
 
@@ -306,25 +307,29 @@ def build_filter(
     """
     conditions = []
 
-    if company:
+    if company and company.strip().lower() not in ("string", "none", "null", ""):
         conditions.append(models.FieldCondition(
-            key="company", match=models.MatchValue(value=company),
+            key="company", match=models.MatchValue(value=company.strip().upper()),
         ))
-    if year is not None:
+    if year is not None and year > 1900:
         conditions.append(models.FieldCondition(
             key="year", match=models.MatchValue(value=year),
         ))
-    if doc_type:
+    if doc_type and doc_type.strip().lower() not in ("string", "none", "null", ""):
         conditions.append(models.FieldCondition(
-            key="doc_type", match=models.MatchValue(value=doc_type),
+            key="doc_type", match=models.MatchValue(value=doc_type.strip().lower()),
         ))
-    if section:
+    if section and section.strip().lower() not in ("string", "none", "null", ""):
         conditions.append(models.FieldCondition(
             key="section", match=models.MatchValue(value=section),
         ))
-    if document_id:
+    if document_id and document_id.strip().lower() not in ("string", "none", "null", ""):
         conditions.append(models.FieldCondition(
             key="document_id", match=models.MatchValue(value=document_id),
+        ))
+    if min_tokens is not None and min_tokens > 0:
+        conditions.append(models.FieldCondition(
+            key="token_count", range=models.Range(gte=min_tokens)
         ))
 
     if not conditions:
@@ -343,6 +348,7 @@ def search(
     section: str = None,
     document_id: str = None,
     min_score: float = 0.0,
+    min_tokens: int = None,
 ) -> list[dict]:
     """Search for similar vectors with optional metadata filtering.
 
@@ -377,7 +383,7 @@ def search(
             }]
     """
     client = get_client()
-    qfilter = build_filter(company, year, doc_type, section, document_id)
+    qfilter = build_filter(company, year, doc_type, section, document_id, min_tokens)
 
     response = client.query_points(
         collection_name=collection,

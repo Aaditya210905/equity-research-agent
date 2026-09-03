@@ -22,6 +22,10 @@ from models.document import initialize_db
 # ---------------------------------------------------------------------------
 import os
 from logging.handlers import TimedRotatingFileHandler
+from fastapi.middleware.cors import CORSMiddleware
+from api.auth import router as auth_router
+from api.workspace_routes import router as workspace_router
+from models.workspace import initialize_workspace_db, close_workspace_db
 
 _LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
 os.makedirs(_LOG_DIR, exist_ok=True)
@@ -64,8 +68,19 @@ app = FastAPI(
     version="0.2.0",
 )
 
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow frontend port (e.g. localhost:5173) in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Mount routes
 app.include_router(router)
+app.include_router(auth_router)
+app.include_router(workspace_router)
 
 
 @app.get("/", tags=["Health"])
@@ -86,7 +101,8 @@ async def root():
 async def _startup():
     # Initialize document registry database
     initialize_db()
-    logger.info("Document registry initialized")
+    initialize_workspace_db()
+    logger.info("Databases initialized")
     logger.info("Equity Research Agent v0.2.0 starting up")
     logger.info("Docs available at http://%s:%s/docs", settings.HOST, settings.PORT)
 
@@ -95,4 +111,5 @@ async def _startup():
 async def _shutdown():
     from models.document import close_db
     close_db()
+    close_workspace_db()
     logger.info("Database connections closed")

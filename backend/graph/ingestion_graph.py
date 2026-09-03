@@ -38,12 +38,38 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def node_init(state: IngestionState) -> dict:
-    """Initialize: uppercase ticker and ensure DB is ready."""
+    """Initialize: uppercase ticker, init DB, and detect exchange.
+
+    Probes SEC EDGAR first (fast CIK lookup, no downloads).
+    If CIK is found → US company (skip BSE).
+    If SECEdgarError raised → not US-listed (use BSE instead).
+    """
     from models.document import initialize_db
+    from connectors.sec_edgar import resolve_cik, SECEdgarError
+
     ticker = state["ticker"].strip().upper()
     initialize_db()
     logger.info("[Ingestion] Starting collection for '%s'", ticker)
-    return {"ticker": ticker}
+
+    # Detect exchange via SEC EDGAR CIK lookup (lightweight, no downloads)
+    exchange = "unknown"
+    try:
+        cik_info = resolve_cik(ticker)
+        if cik_info:
+            exchange = "us"
+            logger.info(
+                "[Ingestion] '%s' is a US company (SEC CIK: %s, %s) → skipping BSE India",
+                ticker, cik_info["cik"], cik_info["name"],
+            )
+    except SECEdgarError:
+        # Not in SEC database → likely Indian or other non-US company
+        exchange = "in"
+        logger.info("[Ingestion] '%s' not found in SEC EDGAR → treating as Indian company, skipping SEC", ticker)
+    except Exception as exc:
+        # Network error or other issue — fall back to trying both
+        logger.warning("[Ingestion] Exchange detection failed for '%s': %s — will try both sources", ticker, exc)
+
+    return {"ticker": ticker, "exchange": exchange}
 
 
 def node_yahoo(state: IngestionState) -> dict:
@@ -66,6 +92,13 @@ def node_yahoo(state: IngestionState) -> dict:
 def node_sec(state: IngestionState) -> dict:
     """Collect SEC EDGAR filings (US companies only)."""
     ticker = state["ticker"]
+    exchange = state.get("exchange", "unknown")
+
+    # Skip SEC if the company was detected as Indian (prevents wrong-exchange picks)
+    if exchange == "in":
+        logger.info("[Ingestion] SEC EDGAR: skipping '%s' (detected as Indian company)", ticker)
+        return {"collection_results": [{"source": "sec", "new": 0, "existing": 0, "failed": 0, "documents": []}]}
+
     logger.info("[Ingestion] SEC EDGAR: collecting for '%s'", ticker)
     try:
         from services.document_service import _collect_sec_filings
@@ -82,6 +115,13 @@ def node_sec(state: IngestionState) -> dict:
 def node_bse(state: IngestionState) -> dict:
     """Collect BSE India filings (Indian companies only)."""
     ticker = state["ticker"]
+    exchange = state.get("exchange", "unknown")
+
+    # Skip BSE if the company was detected as US-listed (prevents wrong-exchange picks)
+    if exchange == "us":
+        logger.info("[Ingestion] BSE India: skipping '%s' (detected as US company)", ticker)
+        return {"collection_results": [{"source": "bse", "new": 0, "existing": 0, "failed": 0, "documents": []}]}
+
     logger.info("[Ingestion] BSE India: collecting for '%s'", ticker)
     try:
         from services.document_service import _collect_bse_filings
@@ -310,6 +350,7 @@ def run_ingestion(ticker: str) -> dict:
     config = {"configurable": {"thread_id": thread_id}}
     initial_state = {
         "ticker": ticker,
+        "exchange": "unknown",  # will be set by node_init
         "collection_results": [],
         "errors": [],
         "final_result": {},

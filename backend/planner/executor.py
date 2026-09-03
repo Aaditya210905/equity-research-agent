@@ -34,7 +34,7 @@ def _exec_financial_engine(plan: dict) -> dict:
 
             # Get financial statements from Yahoo Finance
             market_snap = data_service.get_market_snapshot(ticker)
-            market = market_snap.model_dump() if market_snap else {}
+            market = market_snap.model_dump() if hasattr(market_snap, "model_dump") else (market_snap or {})
 
             # Build normalized financial data from market data
             # Use the financial_statements key if data_service provides it
@@ -124,7 +124,7 @@ def _exec_market_service(plan: dict) -> dict:
         try:
             from services import data_service
             snap = data_service.get_market_snapshot(ticker)
-            results[ticker] = snap.model_dump() if snap else {}
+            results[ticker] = snap.model_dump() if hasattr(snap, "model_dump") else (snap or {})
         except Exception as exc:
             logger.warning("Market service failed for %s: %s", ticker, exc)
             results[ticker] = {"error": str(exc)}

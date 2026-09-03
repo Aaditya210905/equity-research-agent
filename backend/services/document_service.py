@@ -73,8 +73,12 @@ def _compute_sha256(file_path: Path) -> str:
 
 
 def _doc_exists(document_id: str) -> bool:
-    """Check if a document is already registered."""
-    return Document.select().where(Document.document_id == document_id).exists()
+    """Check if a document is already registered AND its file exists on disk."""
+    doc = Document.get_or_none(Document.document_id == document_id)
+    if not doc or not doc.file_path:
+        return False
+    file_path = _BACKEND_DIR / doc.file_path
+    return file_path.exists() and file_path.stat().st_size > 0
 
 
 def _validate_file(file_path: Path) -> bool:
