@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
+      setLoading(true);
       fetchUser();
     } else {
       setLoading(false);

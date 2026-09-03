@@ -1,20 +1,37 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LayoutDashboard, Building2, GitCompare } from 'lucide-react';
+import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe } from 'lucide-react';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Company from './pages/Company';
 import Compare from './pages/Compare';
+import DocumentsHub from './pages/DocumentsHub';
+import BseScreener from './pages/BseScreener';
+import CompanyOverview from './pages/CompanyOverview';
 
 function PrivateRoute({ children }) {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
+  const { token } = useAuth();
+  return token ? children : <Navigate to="/login" />;
 }
 
 function Sidebar() {
   const location = useLocation();
-  const { logout, user } = useAuth();
+  const { logout, user, token } = useAuth();
+  const [watchlist, setWatchlist] = React.useState([]);
+
+  React.useEffect(() => {
+    if (token) {
+      fetch('http://localhost:8000/workspace/watchlist', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+         if (Array.isArray(data)) setWatchlist(data);
+      })
+      .catch(console.error);
+    }
+  }, [token, location.pathname]);
 
   return (
     <div className="sidebar">
@@ -23,12 +40,25 @@ function Sidebar() {
       <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
         <LayoutDashboard size={18} /> Dashboard
       </Link>
-      <Link to="/company/AAPL" className={`nav-link ${location.pathname.startsWith('/company') ? 'active' : ''}`}>
-        <Building2 size={18} /> Workspace
+      <Link to="/overview" className={`nav-link ${location.pathname === '/overview' ? 'active' : ''}`}>
+        <Building2 size={18} /> Company Overview
+      </Link>
+      <Link to="/documents" className={`nav-link ${location.pathname === '/documents' ? 'active' : ''}`}>
+        <FolderOpen size={18} /> Documents
+      </Link>
+      <Link to="/bse" className={`nav-link ${location.pathname === '/bse' ? 'active' : ''}`}>
+        <Globe size={18} /> BSE India
       </Link>
       <Link to="/compare" className={`nav-link ${location.pathname === '/compare' ? 'active' : ''}`}>
         <GitCompare size={18} /> Compare
       </Link>
+      
+      {watchlist.length > 0 && <h3 style={{ marginTop: '20px' }}>Workspaces</h3>}
+      {watchlist.map(item => (
+        <Link key={item.ticker} to={`/company/${item.ticker}`} className={`nav-link ${location.pathname === `/company/${item.ticker}` ? 'active' : ''}`}>
+          <Building2 size={18} /> {item.ticker}
+        </Link>
+      ))}
       
       <div style={{ marginTop: 'auto' }}>
         {user && (
@@ -65,6 +95,9 @@ function AppRoutes() {
         <Routes>
           <Route path="/login" element={<Auth />} />
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/overview" element={<PrivateRoute><CompanyOverview /></PrivateRoute>} />
+          <Route path="/documents" element={<PrivateRoute><DocumentsHub /></PrivateRoute>} />
+          <Route path="/bse" element={<PrivateRoute><BseScreener /></PrivateRoute>} />
           <Route path="/company/:ticker" element={<PrivateRoute><Company /></PrivateRoute>} />
           <Route path="/compare" element={<PrivateRoute><Compare /></PrivateRoute>} />
         </Routes>
