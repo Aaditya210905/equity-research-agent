@@ -1,7 +1,12 @@
 """
 Embedding Generator — Phase 2.4
 
-Converts text chunks into semantic vectors using OpenAI's embedding API.
+Converts text chunks into semantic vectors using a configurable provider.
+
+Providers (set via EMBEDDING_PROVIDER in .env):
+    "hf"         — Hugging Face Inference API  (default)
+    "google"     — Google GenAI (Gemini)
+    "cloudflare" — Cloudflare Workers AI
 
 Architecture:
     Chunks
@@ -11,7 +16,7 @@ Architecture:
         |
         ├── Cached → return vector
         |
-        └── New → batch to OpenAI API
+        └── New → batch to API (HF, Google, or Cloudflare)
                       |
                       v
                 Store in cache
@@ -20,7 +25,7 @@ Architecture:
                 Return vector + metadata
 
 Supports:
-    - Batch processing (up to 2048 texts per API call)
+    - Batch processing
     - Content-hash caching (skip unchanged chunks)
     - Embedding versioning
     - Retry with exponential backoff
@@ -47,22 +52,22 @@ EMBEDDING_VERSION = 1
 BATCH_MAX = 2048
 
 # Retry configuration
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 RETRY_BASE_DELAY = 1.0   # seconds
-RETRY_MAX_DELAY = 30.0   # seconds
+RETRY_MAX_DELAY = 60.0   # seconds
 
 
-# ---------------------------------------------------------------------------
-# Hugging Face client (lazy singleton)
-# ---------------------------------------------------------------------------
-_client = None
+# ===========================================================================
+# Provider: Hugging Face
+# ===========================================================================
+_hf_client = None
 
 
-def _get_client():
+def _get_hf_client():
     """Lazily initialize the Hugging Face Inference client."""
-    global _client
-    if _client is not None:
-        return _client
+    global _hf_client
+    if _hf_client is not None:
+        return _hf_client
 
     try:
         from huggingface_hub import InferenceClient
@@ -77,23 +82,145 @@ def _get_client():
             "Get a key at https://huggingface.co/settings/tokens"
         )
 
-    _client = InferenceClient(
+    _hf_client = InferenceClient(
         provider="hf-inference",
         api_key=hf_token
     )
     logger.info("Hugging Face client initialized")
-    return _client
+    return _hf_client
 
 
-# ---------------------------------------------------------------------------
-# Core embedding function (single batch)
-# ---------------------------------------------------------------------------
+def _embed_batch_hf(texts: list[str], model: str) -> list[list[float]]:
+    """Call Hugging Face embedding API for a batch of texts."""
+    client = _get_hf_client()
+
+    response = client.feature_extraction(
+        texts,
+        model=model,
+    )
+
+    # HuggingFace feature_extraction returns a numpy array or list.
+    import numpy as np
+    if isinstance(response, np.ndarray):
+        return response.tolist()
+    return response
+
+
+# ===========================================================================
+# Provider: Google GenAI (Gemini)
+# ===========================================================================
+_google_client = None
+
+
+def _get_google_client():
+    """Lazily initialize the Google GenAI client."""
+    global _google_client
+    if _google_client is not None:
+        return _google_client
+
+    try:
+        from google import genai
+    except ImportError:
+        raise RuntimeError("google-genai package not installed. Run: pip install google-genai")
+
+    api_key = settings.GEMINI_API_KEY
+
+    if not api_key:
+        raise RuntimeError(
+            "GEMINI_API_KEY not set. Add it to .env\n"
+            "Get a key at https://aistudio.google.com/apikey"
+        )
+
+    _google_client = genai.Client(api_key=api_key)
+    logger.info("Google GenAI client initialized")
+    return _google_client
+
+
+def _embed_batch_google(texts: list[str], model: str) -> list[list[float]]:
+    """Call Google GenAI embedding API for a batch of texts."""
+    from google.genai import types
+
+    client = _get_google_client()
+
+    # Wrap each text in a Content object so the API returns one embedding per text
+    contents = [
+        types.Content(parts=[types.Part(text=t)]) for t in texts
+    ]
+
+    result = client.models.embed_content(
+        model=model,
+        contents=contents,
+    )
+
+    # result.embeddings is a list of ContentEmbedding objects
+    return [emb.values for emb in result.embeddings]
+
+
+# ===========================================================================
+# Provider: Cloudflare Workers AI
+# ===========================================================================
+
+def _embed_batch_cloudflare(texts: list[str], model: str) -> list[list[float]]:
+    """Call Cloudflare Workers AI embedding API for a batch of texts."""
+    import requests as _requests
+
+    account_id = settings.CLOUDFLARE_ACCOUNT_ID
+    auth_token = settings.CLOUDFLARE_AUTH_TOKEN
+
+    if not account_id or not auth_token:
+        raise RuntimeError(
+            "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_AUTH_TOKEN must be set in .env\n"
+            "Get them at https://dash.cloudflare.com/"
+        )
+
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
+
+    response = _requests.post(
+        url,
+        headers={"Authorization": f"Bearer {auth_token}"},
+        json={"text": texts},
+        timeout=120,
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Cloudflare API error {response.status_code}: {response.text}"
+        )
+
+    data = response.json()
+
+    # Cloudflare returns {"result": {"data": [[...], [...], ...]}, "success": true}
+    if not data.get("success"):
+        errors = data.get("errors", [])
+        raise RuntimeError(f"Cloudflare embedding failed: {errors}")
+
+    return data["result"]["data"]
+
+
+# ===========================================================================
+# Helpers
+# ===========================================================================
+
+def _extract_retry_delay(exc: Exception) -> float | None:
+    """Extract the suggested retry delay from a Google API rate-limit error."""
+    import re
+    err_str = str(exc)
+    # Look for "Please retry in Xs" or "retryDelay": "Xs"
+    match = re.search(r'(?:retry in |retryDelay["\s:]+)(\d+(?:\.\d+)?)\s*s', err_str, re.IGNORECASE)
+    if match:
+        return float(match.group(1))
+    return None
+
+
+# ===========================================================================
+# Unified batch embedding with retries
+# ===========================================================================
 
 def _embed_batch_raw(
     texts: list[str],
     model: str = None,
 ) -> list[list[float]]:
-    """Call Hugging Face embedding API for a batch of texts.
+    """Route to the correct provider and embed a batch of texts with retries.
 
     Parameters
     ----------
@@ -113,7 +240,7 @@ def _embed_batch_raw(
         If all retries are exhausted.
     """
     model = model or settings.EMBEDDING_MODEL
-    client = _get_client()
+    provider = settings.EMBEDDING_PROVIDER.lower()
 
     if len(texts) > BATCH_MAX:
         raise ValueError(
@@ -123,33 +250,36 @@ def _embed_batch_raw(
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            response = client.feature_extraction(
-                texts,
-                model=model,
-            )
-            
-            # HuggingFace feature_extraction returns a numpy array or list.
-            # Convert to list of lists of floats.
-            import numpy as np
-            if isinstance(response, np.ndarray):
-                embeddings = response.tolist()
+            if provider == "google":
+                return _embed_batch_google(texts, model)
+            elif provider == "cloudflare":
+                return _embed_batch_cloudflare(texts, model)
             else:
-                embeddings = response
-
-            return embeddings
+                return _embed_batch_hf(texts, model)
 
         except Exception as exc:
             last_error = exc
             error_name = type(exc).__name__
 
             # Don't retry on auth errors
-            if "authentication" in str(exc).lower() or "token" in str(exc).lower() or "402" in str(exc):
-                raise RuntimeError(f"Hugging Face authentication or billing failed: {exc}") from exc
+            err_str = str(exc).lower()
+            if "authentication" in err_str or "token" in err_str or "402" in str(exc) or "api_key" in err_str:
+                raise RuntimeError(f"Embedding authentication/billing failed: {exc}") from exc
 
-            delay = min(RETRY_BASE_DELAY * (2 ** (attempt - 1)), RETRY_MAX_DELAY)
+            # Don't retry on hard 400 errors (e.g. batch too large)
+            if "invalid_argument" in err_str or "400" in str(exc):
+                raise RuntimeError(f"Embedding request invalid: {exc}") from exc
+
+            # For rate limits (429), extract the suggested retry delay from Google
+            retry_delay = _extract_retry_delay(exc)
+            if retry_delay and retry_delay > 0:
+                delay = min(retry_delay + 2, RETRY_MAX_DELAY)  # add 2s buffer
+            else:
+                delay = min(RETRY_BASE_DELAY * (2 ** (attempt - 1)), RETRY_MAX_DELAY)
+
             logger.warning(
-                "Embedding attempt %d/%d failed (%s: %s). Retrying in %.1fs...",
-                attempt, MAX_RETRIES, error_name, exc, delay,
+                "Embedding attempt %d/%d failed (%s). Retrying in %.1fs...",
+                attempt, MAX_RETRIES, error_name, delay,
             )
             time.sleep(delay)
 
@@ -244,14 +374,32 @@ def embed_chunks(
 
     # Batch-embed uncached chunks
     if to_embed:
+        provider = settings.EMBEDDING_PROVIDER.lower()
         logger.info(
-            "Embedding %d chunks (batch_size=%d, model=%s, %d cached)...",
-            len(to_embed), batch_size, model, cached_count,
+            "Embedding %d chunks (batch_size=%d, model=%s, provider=%s, %d cached)...",
+            len(to_embed), batch_size, model, provider, cached_count,
         )
 
-        for batch_start in range(0, len(to_embed), batch_size):
+        total_batches = (len(to_embed) + batch_size - 1) // batch_size
+        for batch_idx, batch_start in enumerate(range(0, len(to_embed), batch_size)):
             batch = to_embed[batch_start:batch_start + batch_size]
             batch_texts = [item[1]["text"] for item in batch]
+
+            # Rate-limit delay for Google free tier (30K TPM limit)
+            # Each chunk averages ~400 tokens, so we calculate how long to wait
+            # based on the token budget consumed by the previous batch.
+            if batch_idx > 0 and provider == "google":
+                prev_batch_size = len(to_embed[batch_start - batch_size:batch_start])
+                estimated_tokens = prev_batch_size * 400  # ~400 tokens per chunk
+                # Google allows 30K tokens/min → wait proportionally
+                delay_seconds = max(2.0, (estimated_tokens / 30000) * 65)
+                logger.info(
+                    "Batch %d/%d — waiting %.0fs for token quota reset...",
+                    batch_idx + 1, total_batches, delay_seconds,
+                )
+                time.sleep(delay_seconds)
+            elif batch_idx > 0:
+                time.sleep(1.0)  # Small delay for HuggingFace
 
             try:
                 vectors = _embed_batch_raw(batch_texts, model)
@@ -346,4 +494,3 @@ def _build_embedded_chunk(
         "content_hash": content_hash,
         "embedded_at": datetime.now(timezone.utc).isoformat(),
     }
-

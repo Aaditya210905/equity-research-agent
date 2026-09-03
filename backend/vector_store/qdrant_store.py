@@ -33,7 +33,19 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 DEFAULT_COLLECTION = "financial_documents"
-DEFAULT_VECTOR_SIZE = 768  # google/embeddinggemma-300m
+
+def _get_default_vector_size() -> int:
+    """Return vector size based on the active embedding provider."""
+    try:
+        from config.settings import settings
+        provider = getattr(settings, "EMBEDDING_PROVIDER", "hf").lower()
+        if provider == "google":
+            return 3072  # gemini-embedding-2
+        return 768  # HF or Cloudflare (embeddinggemma-300m)
+    except Exception:
+        return 768
+
+DEFAULT_VECTOR_SIZE = _get_default_vector_size()
 
 # Payload keys to index for fast filtering
 _INDEXED_FIELDS = {

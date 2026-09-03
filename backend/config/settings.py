@@ -84,12 +84,28 @@ class Settings(BaseModel):
     )
 
     # --- Embedding (Phase 2.4) ---
+    EMBEDDING_PROVIDER: str = Field(
+        default="hf",
+        description="Embedding provider: 'hf' (Hugging Face), 'google' (Gemini), or 'cloudflare'",
+    )
     EMBEDDING_MODEL: str = Field(
-        description="OpenAI embedding model to use",
+        description="Embedding model to use (provider-specific)",
     )
     EMBEDDING_BATCH_SIZE: int = Field(
         default=100,
         description="Number of chunks per embedding API batch call",
+    )
+    GEMINI_API_KEY: str = Field(
+        default="",
+        description="Google AI Studio API key for Gemini embeddings",
+    )
+    CLOUDFLARE_ACCOUNT_ID: str = Field(
+        default="",
+        description="Cloudflare account ID for Workers AI",
+    )
+    CLOUDFLARE_AUTH_TOKEN: str = Field(
+        default="",
+        description="Cloudflare API token for Workers AI",
     )
 
     # --- Vector Store (Phase 2.5) ---
@@ -126,8 +142,12 @@ def _load_settings() -> Settings:
         OPENAI_BASE_URL=os.getenv("OPENAI_BASE_URL", ""),
         HF_TOKEN=os.getenv("HF_TOKEN", ""),
         LLM_MODEL=os.getenv("LLM_MODEL", ""),
+        EMBEDDING_PROVIDER=os.getenv("EMBEDDING_PROVIDER", "hf"),
         EMBEDDING_MODEL=os.getenv("EMBEDDING_MODEL", ""),
         EMBEDDING_BATCH_SIZE=int(os.getenv("EMBEDDING_BATCH_SIZE", 100) or 100),
+        GEMINI_API_KEY=os.getenv("GEMINI_API_KEY", ""),
+        CLOUDFLARE_ACCOUNT_ID=os.getenv("CLOUDFLARE_ACCOUNT_ID", ""),
+        CLOUDFLARE_AUTH_TOKEN=os.getenv("CLOUDFLARE_AUTH_TOKEN", ""),
     )
 
 

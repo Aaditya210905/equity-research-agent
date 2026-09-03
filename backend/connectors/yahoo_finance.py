@@ -36,6 +36,8 @@ class YahooFinanceError(Exception):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+_RESOLVED_CACHE = {}
+
 def resolve_ticker(ticker: str) -> str:
     """Resolve a user-entered ticker into a valid Yahoo Finance symbol.
 
@@ -53,39 +55,56 @@ def resolve_ticker(ticker: str) -> str:
     if "." in ticker:
         return ticker
 
-    # Step 1: Try ticker directly (US stocks)
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info or {}
-        if (
-            info.get("longName")
-            or info.get("shortName")
-            or info.get("regularMarketPrice")
-            or info.get("currentPrice")
-        ):
-            return ticker
-    except Exception:
-        pass
+    # Return cached resolution if available
+    if ticker in _RESOLVED_CACHE:
+        return _RESOLVED_CACHE[ticker]
 
-    # Step 2: Try NSE India (.NS suffix)
-    nse_ticker = ticker + ".NS"
+    # Suppress yfinance internal logger spam during probing
+    yf_logger = logging.getLogger("yfinance")
+    old_level = yf_logger.level
+    yf_logger.setLevel(logging.CRITICAL)
+
     try:
-        stock = yf.Ticker(nse_ticker)
-        info = stock.info or {}
-        if (
-            info.get("longName")
-            or info.get("shortName")
-            or info.get("regularMarketPrice")
-            or info.get("currentPrice")
-        ):
-            logger.info("Resolved '%s' → '%s' (NSE India)", ticker, nse_ticker)
-            return nse_ticker
-    except Exception:
-        pass
+        # Step 1: Try ticker directly (US stocks)
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info or {}
+            if (
+                info.get("longName")
+                or info.get("shortName")
+                or info.get("regularMarketPrice")
+                or info.get("currentPrice")
+            ):
+                _RESOLVED_CACHE[ticker] = ticker
+                return ticker
+        except Exception:
+            pass
+
+        # Step 2: Try NSE India (.NS suffix)
+        nse_ticker = ticker + ".NS"
+        try:
+            stock = yf.Ticker(nse_ticker)
+            info = stock.info or {}
+            if (
+                info.get("longName")
+                or info.get("shortName")
+                or info.get("regularMarketPrice")
+                or info.get("currentPrice")
+            ):
+                logger.info("Resolved '%s' → '%s' (NSE India)", ticker, nse_ticker)
+                _RESOLVED_CACHE[ticker] = nse_ticker
+                return nse_ticker
+        except Exception:
+            pass
+    finally:
+        # Restore yfinance logger
+        yf_logger.setLevel(old_level)
 
     # Fallback: return original ticker and let downstream handle errors
     logger.warning("Could not resolve ticker '%s', using as-is", ticker)
+    _RESOLVED_CACHE[ticker] = ticker
     return ticker
+
 
 
 def _get_stock(symbol: str) -> yf.Ticker:
