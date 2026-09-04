@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Search, FileText, Download, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Search, FileText, Download, CheckCircle2, RefreshCw, Folder, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
 
 export default function DocumentsHub() {
   const { token } = useAuth();
@@ -9,6 +9,18 @@ export default function DocumentsHub() {
   const [documents, setDocuments] = useState([]);
   const [isCollecting, setIsCollecting] = useState(false);
   const [collectLogs, setCollectLogs] = useState([]);
+  const [openFolders, setOpenFolders] = useState({});
+
+  const toggleFolder = (type) => {
+    setOpenFolders(prev => ({ ...prev, [type]: !prev[type] }));
+  };
+
+  const groupedDocuments = documents.reduce((acc, doc) => {
+    const type = doc.doc_type || 'uncategorized';
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(doc);
+    return acc;
+  }, {});
   
   useEffect(() => {
     if (searchTicker) {
@@ -68,6 +80,13 @@ export default function DocumentsHub() {
     };
   };
 
+  const downloadDocument = (documentId) => {
+    if (!documentId) return;
+    const downloadUrl = `http://localhost:8000/documents/${documentId}/download`;
+    // Opening in a new tab will natively trigger the download from our backend endpoint
+    window.open(downloadUrl, '_blank');
+  };
+
   return (
     <div>
       <div className="top-bar">
@@ -106,45 +125,67 @@ export default function DocumentsHub() {
       )}
 
       <div className="glass-card">
-        <h3 style={{ marginBottom: '20px' }}>{searchTicker ? `Repository for ${searchTicker}` : 'Document Repository'}</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3>{searchTicker ? `Repository for ${searchTicker}` : 'Document Repository'}</h3>
+        </div>
         {documents.length === 0 ? (
           <p style={{ color: 'var(--text-secondary)' }}>
              {searchTicker ? `No documents found for ${searchTicker}.` : 'Search for a company above to ingest and view documents.'}
           </p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '15px' }}>Document</th>
-                <th style={{ padding: '15px' }}>Source</th>
-                <th style={{ padding: '15px' }}>Year</th>
-                <th style={{ padding: '15px' }}>Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              {documents.map((doc, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <td style={{ padding: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <FileText size={16} color="var(--accent)" />
-                    {doc.url ? (
-                      <a href={doc.url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-primary)' }}>
-                        {doc.title || doc.url.split('/').pop()}
-                      </a>
-                    ) : (
-                      <span>{doc.title || 'Unknown Document'}</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '15px', color: 'var(--text-secondary)' }}>{doc.source}</td>
-                  <td style={{ padding: '15px' }}>{doc.year || 'N/A'}</td>
-                  <td style={{ padding: '15px' }}>
-                    <span className="badge high" style={{ textTransform: 'capitalize' }}>
-                      {doc.doc_type}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {Object.entries(groupedDocuments).map(([type, docs]) => {
+              const isOpen = openFolders[type];
+              return (
+                <div key={type}>
+                  <div 
+                    onClick={() => toggleFolder(type)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px', cursor: 'pointer', background: isOpen ? 'rgba(255,255,255,0.05)' : 'transparent', borderRadius: '6px', userSelect: 'none', transition: 'background 0.2s' }}
+                    onMouseOver={(e) => { if(!isOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                    onMouseOut={(e) => { if(!isOpen) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    {isOpen ? <FolderOpen size={18} color="var(--accent)" /> : <Folder size={18} color="var(--accent)" />}
+                    <span style={{ textTransform: 'capitalize', fontWeight: '500', fontSize: '1rem' }}>{type.replace(/_/g, ' ')}</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginLeft: '10px' }}>({docs.length})</span>
+                  </div>
+                  
+                  {isOpen && (
+                    <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '35px', marginTop: '5px', marginBottom: '10px', gap: '5px' }}>
+                      {docs.map((doc, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 15px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <FileText size={16} color="var(--text-secondary)" />
+                            {doc.document_id ? (
+                              <a href={`http://localhost:8000/documents/${doc.document_id}/download`} target="_blank" rel="noreferrer" style={{ color: 'var(--text-primary)', textDecoration: 'none', fontWeight: '500' }}>
+                                {(doc.title === 'Filing' ? (doc.doc_type || 'Filing').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : doc.title) || doc.document_id}
+                              </a>
+                            ) : (
+                              <span style={{ fontWeight: '500' }}>{doc.title || 'Unknown Document'}</span>
+                            )}
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '10px', background: 'rgba(0,0,0,0.3)', padding: '2px 8px', borderRadius: '12px' }}>
+                              {doc.year ? `${doc.year} • ` : ''}{doc.source}
+                            </span>
+                          </div>
+                          {doc.document_id && (
+                            <button 
+                              onClick={() => downloadDocument(doc.document_id)}
+                              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px', borderRadius: '6px', transition: 'all 0.2s' }}
+                              title="Download File"
+                              onMouseOver={(e) => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                            >
+                              <Download size={16} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ReportViewer from '../components/ReportViewer';
-import Chatbot from '../components/Chatbot';
-import { Download, RefreshCw, FileText, CheckCircle2 } from 'lucide-react';
+import { Download, RefreshCw, FileText, CheckCircle2, Bot } from 'lucide-react';
 
 function AnalystNotes({ ticker }) {
   const { token } = useAuth();
@@ -55,10 +54,10 @@ function AnalystNotes({ ticker }) {
   };
 
   return (
-    <div className="glass-card">
+    <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <h4>Analyst Notes</h4>
       
-      <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '15px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', marginBottom: '15px', minHeight: '400px' }}>
         {savedNotes.map(n => (
           <div key={n.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
             <p style={{ fontSize: '0.9rem', marginBottom: '5px' }}>{n.content}</p>
@@ -73,7 +72,7 @@ function AnalystNotes({ ticker }) {
       <textarea 
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        style={{ width: '100%', height: '100px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'white', padding: '10px', fontFamily: 'inherit' }} 
+        style={{ width: '100%', height: '150px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border)', borderRadius: '8px', color: 'white', padding: '10px', fontFamily: 'inherit', resize: 'vertical' }} 
         placeholder="Jot down your thesis or observations..."
       ></textarea>
       <button className="btn-primary" onClick={handleSave} style={{ width: '100%', marginTop: '10px' }}>Save Note</button>
@@ -165,17 +164,26 @@ export default function Company() {
 
   const formatNumber = (num) => {
     if (!num) return 'N/A';
-    if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
-    if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-    if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-    return `$${num.toLocaleString()}`;
+    if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`;
+    if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+    return `${num.toLocaleString()}`;
   };
 
   if (loading && !companyInfo) return <div>Loading workspace...</div>;
 
   return (
     <div className="company-workspace">
-      <div className="top-bar" style={{ marginBottom: '15px' }}>
+      <div className="top-bar" style={{ 
+        position: 'sticky',
+        top: -50,
+        zIndex: 50,
+        background: 'rgba(15, 23, 42, 0.85)',
+        backdropFilter: 'blur(12px)',
+        margin: '-30px -30px 20px -30px',
+        padding: '30px 30px 15px 30px',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+      }}>
         <div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             {companyInfo?.profile ? companyInfo.profile.company_name : ticker} 
@@ -186,6 +194,9 @@ export default function Company() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <Link to={`/company/${ticker}/chat`} className="btn-primary" style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--accent)', color: '#fff', textDecoration: 'none' }}>
+            <Bot size={16} /> Research Assistant
+          </Link>
           {!isGenerating && (
             <button className="btn-primary" onClick={handleGenerate} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <RefreshCw size={16} /> Generate AI Report
@@ -263,7 +274,7 @@ export default function Company() {
         
         {/* Company Overview Card */}
         {companyInfo?.profile && (
-          <div className="glass-card" style={{ flex: 2, padding: '20px', overflowY: 'auto', maxHeight: '200px' }}>
+          <div className="glass-card" style={{ flex: 2, padding: '20px', overflowY: 'auto', maxHeight: '400px' }}>
             <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Company Overview</h3>
             <div style={{ display: 'flex', gap: '20px', marginBottom: '10px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
               <div><strong>Exchange:</strong> {companyInfo.profile.exchange}</div>
@@ -299,9 +310,8 @@ export default function Company() {
           <div style={{ flex: 3 }}>
              <ReportViewer report={report} />
           </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'sticky', top: '80px', height: 'calc(100vh - 120px)' }}>
              <AnalystNotes ticker={ticker} />
-             <Chatbot ticker={ticker} />
           </div>
         </div>
       ) : (

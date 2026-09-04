@@ -32,7 +32,11 @@ import json
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+import httpx
+from pathlib import Path
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 from connectors.yahoo_finance import YahooFinanceError
 from connectors.market import MarketDataError
@@ -218,6 +222,44 @@ async def get_documents(
             status_code=500,
             detail=f"Failed to retrieve documents for '{ticker.upper()}'.",
         )
+
+@router.get(
+    "/documents/{document_id}/download",
+    tags=["Documents"],
+    summary="Download a specific document by its ID",
+)
+async def download_document_by_id(document_id: str):
+    from services import document_service
+    doc = document_service.get_document(document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    if doc.get("file_path"):
+        file_abs_path = BACKEND_DIR / doc["file_path"]
+        if file_abs_path.exists():
+            return FileResponse(path=file_abs_path, filename=file_abs_path.name, content_disposition_type="attachment")
+            
+    # Fallback to proxy if no local file but has source URL
+    if doc.get("source_url"):
+        async def stream_file():
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+                async with client.stream("GET", doc["source_url"]) as response:
+                    if response.status_code == 200:
+                        async for chunk in response.aiter_bytes():
+                            yield chunk
+        
+        filename = doc["source_url"].split("/")[-1]
+        if not filename or "?" in filename:
+            filename = "document.pdf"
+            
+        return StreamingResponse(
+            stream_file(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename=\"{filename}\""}
+        )
+        
+    raise HTTPException(status_code=404, detail="Document file not available for download")
 
 # ---------------------------------------------------------------------------
 # Phase 1.4 — BSE Filings (annual reports, quarterly results, announcements)

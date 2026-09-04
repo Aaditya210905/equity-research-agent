@@ -67,9 +67,35 @@ export default function Chatbot({ ticker }) {
             
             try {
               const dataObj = JSON.parse(dataStr);
-              if (dataObj.content) {
-                aiResponseText += dataObj.content;
-                // Update the last message
+              if (dataObj.node === "error") {
+                aiResponseText = "Error: " + (dataObj.data?.error || "Unknown error occurred.");
+              } else if (dataObj.node === "done") {
+                // stream finished
+              } else if (dataObj.data) {
+                // If the state update contains the answer, use it
+                if (dataObj.data.answer) {
+                  aiResponseText = dataObj.data.answer;
+                } else if (!aiResponseText) {
+                  // Show intermediate status if answer is not yet generated
+                  const statusMap = {
+                    classify: "Understanding question...",
+                    expand: "Formulating search queries...",
+                    retrieve: "Searching documents...",
+                    build_context: "Reading sources...",
+                    build_prompt: "Preparing response...",
+                    generate_answer: "Generating answer...",
+                    compute_confidence: "Verifying...",
+                    respond_insufficient: "Not enough information found.",
+                    respond: "Finalizing response..."
+                  };
+                  if (statusMap[dataObj.node]) {
+                    aiResponseText = `*${statusMap[dataObj.node]}*`;
+                  }
+                }
+              }
+
+              // Update the last message if we have text to show
+              if (aiResponseText) {
                 setMessages(prev => {
                   const newMsgs = [...prev];
                   newMsgs[newMsgs.length - 1].text = aiResponseText;

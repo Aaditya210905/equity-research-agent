@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe } from 'lucide-react';
+import logo from './assets/logo.png';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Company from './pages/Company';
@@ -9,6 +10,7 @@ import Compare from './pages/Compare';
 import DocumentsHub from './pages/DocumentsHub';
 import BseScreener from './pages/BseScreener';
 import CompanyOverview from './pages/CompanyOverview';
+import ResearchAssistant from './pages/ResearchAssistant';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -35,7 +37,9 @@ function Sidebar() {
 
   return (
     <div className="sidebar">
-      <h2>Research Agent</h2>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', padding: '0px 0px' }}>
+        <img src={logo} alt="EQUITYLENS Logo" style={{ width: '165px', height: 'auto', objectFit: 'contain' }} />
+      </div>
       <h3>Menu</h3>
       <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
         <LayoutDashboard size={18} /> Dashboard
@@ -99,6 +103,7 @@ function AppRoutes() {
           <Route path="/documents" element={<PrivateRoute><DocumentsHub /></PrivateRoute>} />
           <Route path="/bse" element={<PrivateRoute><BseScreener /></PrivateRoute>} />
           <Route path="/company/:ticker" element={<PrivateRoute><Company /></PrivateRoute>} />
+          <Route path="/company/:ticker/chat" element={<PrivateRoute><ResearchAssistant /></PrivateRoute>} />
           <Route path="/compare" element={<PrivateRoute><Compare /></PrivateRoute>} />
         </Routes>
       </AppLayout>

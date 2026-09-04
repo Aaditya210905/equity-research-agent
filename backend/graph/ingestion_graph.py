@@ -252,9 +252,15 @@ def node_embed(state: IngestionState) -> dict:
             # Step 4: Embed
             embed_result = embed_chunks(chunks, use_cache=True)
             embedded_chunks = embed_result.get("chunks", [])
+            failed_embeds = embed_result.get("failed", 0)
 
             # Step 5: Upload to Qdrant
             upload_result = upload_chunks(embedded_chunks)
+            
+            if failed_embeds > 0 or not embedded_chunks:
+                logger.warning("[Embed] Embedding failed for some chunks in %s (failed: %d). Skipping status update.", doc_id, failed_embeds)
+                total_failed += 1
+                continue
 
             total_embedded += 1
             total_chunks += len(embedded_chunks)
