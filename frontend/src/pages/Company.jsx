@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ReportViewer from '../components/ReportViewer';
+import MarketDataGrid from '../components/MarketDataGrid';
 import { Download, RefreshCw, FileText, CheckCircle2, Bot } from 'lucide-react';
 
 function AnalystNotes({ ticker }) {
@@ -86,11 +87,10 @@ export default function Company() {
   
   const [report, setReport] = useState(null);
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [marketData, setMarketData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateLogs, setGenerateLogs] = useState([]);
-  
-  const marketData = companyInfo?.market_data;
 
   useEffect(() => {
     fetchLatestReport();
@@ -101,6 +101,9 @@ export default function Company() {
     try {
       const compRes = await fetch(`http://localhost:8000/company/${ticker}`);
       if (compRes.ok) setCompanyInfo(await compRes.json());
+      
+      const marketRes = await fetch(`http://localhost:8000/market/${ticker}`);
+      if (marketRes.ok) setMarketData(await marketRes.json());
     } catch (e) { console.error(e); }
   };
 
@@ -193,14 +196,20 @@ export default function Company() {
             {companyInfo?.profile ? `${companyInfo.profile.sector} • ${companyInfo.profile.industry}` : 'Advanced AI Research Dashboard'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
           <Link to={`/company/${ticker}/chat`} className="btn-primary" style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--accent)', color: '#fff', textDecoration: 'none' }}>
             <Bot size={16} /> Research Assistant
           </Link>
           {!isGenerating && (
-            <button className="btn-primary" onClick={handleGenerate} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <RefreshCw size={16} /> Generate AI Report
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'right', maxWidth: '450px', lineHeight: '1.4' }}>
+                <span style={{ color: '#fbbf24', fontWeight: 600 }}>⚠️ Educational Use Only</span><br/>
+                AI-generated analysis is not investment advice. Verify information independently before making financial decisions.
+              </div>
+              <button className="btn-primary" onClick={handleGenerate} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
+                <RefreshCw size={16} /> Generate AI Report
+              </button>
+            </div>
           )}
           {report && (
             <div className="export-bar" style={{ display: 'flex', gap: '5px' }}>
@@ -211,82 +220,9 @@ export default function Company() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
-        {/* Market Data KPI Grid */}
-        {marketData && (() => {
-          const currency = companyInfo?.profile?.currency;
-          const sym = currency === 'INR' ? '₹' : (currency === 'USD' ? '$' : (currency === 'EUR' ? '€' : (currency === 'GBP' ? '£' : (currency ? `${currency} ` : '$'))));
-          
-          return (
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Current Price</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{sym}{marketData.current_price}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Previous Close</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{sym}{marketData.previous_close ?? 'N/A'}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Open</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{sym}{marketData.open ?? 'N/A'}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Market Cap</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{sym}{formatNumber(companyInfo?.profile?.market_cap)}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>P/E Ratio (TTM)</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{marketData.pe_ratio ?? 'N/A'}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Forward P/E</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{marketData.forward_pe ?? 'N/A'}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>52W Range</h4>
-                <div className="value" style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginTop: '5px' }}>
-                  {sym}{marketData.fifty_two_week_low ?? '-'} - {sym}{marketData.fifty_two_week_high ?? '-'}
-                </div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Day's Range</h4>
-                <div className="value" style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginTop: '5px' }}>
-                  {sym}{marketData.day_low ?? '-'} - {sym}{marketData.day_high ?? '-'}
-                </div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Volume</h4>
-                <div className="value" style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>{marketData.volume?.toLocaleString() || 'N/A'}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '5px' }}>Avg: {marketData.average_volume?.toLocaleString() || 'N/A'}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Div Yield</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{marketData.dividend_yield ? `${marketData.dividend_yield}%` : 'N/A'}</div>
-              </div>
-              <div className="glass-card" style={{ padding: '15px' }}>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>Beta</h4>
-                <div className="value" style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{marketData.beta ?? 'N/A'}</div>
-              </div>
-            </div>
-          );
-        })()}
-        
-        {/* Company Overview Card */}
-        {companyInfo?.profile && (
-          <div className="glass-card" style={{ flex: 2, padding: '20px', overflowY: 'auto', maxHeight: '400px' }}>
-            <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Company Overview</h3>
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '10px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              <div><strong>Exchange:</strong> {companyInfo.profile.exchange}</div>
-              <div><strong>Country:</strong> {companyInfo.profile.country}</div>
-              <div><strong>Employees:</strong> {companyInfo.profile.employees?.toLocaleString() || 'N/A'}</div>
-              <div><strong>Website:</strong> <a href={companyInfo.profile.website} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{companyInfo.profile.website}</a></div>
-            </div>
-            <p style={{ fontSize: '0.9rem', lineHeight: '1.5', color: 'var(--text-primary)' }}>
-              {companyInfo.profile.description}
-            </p>
-          </div>
-        )}
+      {/* Market Data KPI Grid */}
+      <div style={{ marginBottom: '40px' }}>
+        {marketData && <MarketDataGrid marketData={marketData} />}
       </div>
       
       {isGenerating && (
@@ -308,7 +244,7 @@ export default function Company() {
       {report ? (
         <div style={{ display: 'flex', gap: '30px' }}>
           <div style={{ flex: 3 }}>
-             <ReportViewer report={report} />
+             <ReportViewer report={report} ticker={ticker} />
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'sticky', top: '80px', height: 'calc(100vh - 120px)' }}>
              <AnalystNotes ticker={ticker} />

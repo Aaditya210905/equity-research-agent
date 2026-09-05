@@ -1,9 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 
 export default function Compare() {
-  const [tickers, setTickers] = useState(['TCS', 'INFY', 'HCLTECH']);
+  const [tickers, setTickers] = useState(['TCS', 'INFY', 'RELIANCE']);
   const [newTicker, setNewTicker] = useState('');
+  const [marketDataMap, setMarketDataMap] = useState({});
+
+  useEffect(() => {
+    tickers.forEach(async (t) => {
+      if (!marketDataMap[t]) {
+        try {
+          const res = await fetch(`http://localhost:8000/market/${t}`);
+          if (res.ok) {
+            const data = await res.json();
+            setMarketDataMap(prev => ({ ...prev, [t]: data }));
+          }
+        } catch (e) {
+          console.error(`Failed to fetch ${t}`, e);
+        }
+      }
+    });
+  }, [tickers]);
 
   const handleAdd = (e) => {
     e.preventDefault();
@@ -17,12 +34,22 @@ export default function Compare() {
     setTickers(tickers.filter(ticker => ticker !== t));
   };
 
-  // Dummy mock data since comparison backend endpoint is minimal in this phase
-  const mockData = {
-    'TCS': { price: 3800, pe: 32.5, revGrowth: '8.4%', opMargin: '24.5%', roe: '45.2%' },
-    'INFY': { price: 1450, pe: 24.1, revGrowth: '5.2%', opMargin: '21.0%', roe: '32.1%' },
-    'HCLTECH': { price: 1320, pe: 21.8, revGrowth: '10.5%', opMargin: '19.8%', roe: '28.4%' },
+  const formatNumber = (num) => {
+    if (!num) return 'N/A';
+    if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`;
+    if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+    return `${num.toLocaleString()}`;
   };
+
+  const metricsToCompare = [
+    { id: 'price', label: 'Price', getValue: (d) => d.price?.current ? `${d.currency === 'INR' ? '₹' : '$'}${d.price.current}` : 'N/A' },
+    { id: 'marketCap', label: 'Market Cap', getValue: (d) => d.valuation?.market_cap ? `${d.currency === 'INR' ? '₹' : '$'}${formatNumber(d.valuation.market_cap)}` : 'N/A' },
+    { id: 'pe', label: 'P/E Ratio', getValue: (d) => d.multiples?.pe_ratio ?? 'N/A' },
+    { id: 'forwardPe', label: 'Forward P/E', getValue: (d) => d.multiples?.forward_pe ?? 'N/A' },
+    { id: 'pb', label: 'Price to Book', getValue: (d) => d.multiples?.price_to_book ?? 'N/A' },
+    { id: 'divYield', label: 'Div Yield', getValue: (d) => d.trading?.dividend_yield ? `${d.trading.dividend_yield}%` : 'N/A' },
+  ];
 
   return (
     <div>
@@ -58,14 +85,14 @@ export default function Compare() {
             </tr>
           </thead>
           <tbody>
-            {['price', 'pe', 'revGrowth', 'opMargin', 'roe'].map(metric => (
-              <tr key={metric} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <td style={{ padding: '15px', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
-                  {metric.replace(/([A-Z])/g, ' $1').trim()}
+            {metricsToCompare.map(metric => (
+              <tr key={metric.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <td style={{ padding: '15px', color: 'var(--text-secondary)' }}>
+                  {metric.label}
                 </td>
                 {tickers.map(t => (
-                  <td key={`${t}-${metric}`} style={{ padding: '15px', fontWeight: 500 }}>
-                    {mockData[t] ? mockData[t][metric] || '-' : 'N/A'}
+                  <td key={`${t}-${metric.id}`} style={{ padding: '15px', fontWeight: 500 }}>
+                    {marketDataMap[t] ? metric.getValue(marketDataMap[t]) : 'Loading...'}
                   </td>
                 ))}
               </tr>
@@ -77,8 +104,7 @@ export default function Compare() {
       <div className="glass-card" style={{ marginTop: '20px' }}>
         <h3 style={{ color: 'var(--accent)', marginBottom: '15px' }}>AI Comparison Synthesis</h3>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          Based on the comparative matrix, <b>TCS</b> maintains a premium valuation (P/E 32.5) justified by its industry-leading operating margin of 24.5% and superior ROE. 
-          However, <b>HCLTECH</b> shows the strongest topline momentum with 10.5% Revenue Growth, potentially signaling a shift in market share.
+          Based on the live comparative matrix, you can evaluate companies on real-time market data. Note that financial metrics like revenue growth and operating margin require parsing full quarterly reports, which can be done from the individual company dashboards.
         </p>
       </div>
     </div>

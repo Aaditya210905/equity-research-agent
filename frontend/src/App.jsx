@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe } from 'lucide-react';
+import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe, Info } from 'lucide-react';
 import logo from './assets/logo.png';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -11,6 +11,7 @@ import DocumentsHub from './pages/DocumentsHub';
 import BseScreener from './pages/BseScreener';
 import CompanyOverview from './pages/CompanyOverview';
 import ResearchAssistant from './pages/ResearchAssistant';
+import AboutUs from './pages/AboutUs';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -56,6 +57,9 @@ function Sidebar() {
       <Link to="/compare" className={`nav-link ${location.pathname === '/compare' ? 'active' : ''}`}>
         <GitCompare size={18} /> Compare
       </Link>
+      <Link to="/about" className={`nav-link ${location.pathname === '/about' ? 'active' : ''}`}>
+        <Info size={18} /> About Us
+      </Link>
       
       {watchlist.length > 0 && <h3 style={{ marginTop: '20px' }}>Workspaces</h3>}
       {watchlist.map(item => (
@@ -85,8 +89,20 @@ function AppLayout({ children }) {
   return (
     <div className="app-layout">
       <Sidebar />
-      <div className="main-content">
-        {children}
+      <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1 }}>
+          {children}
+        </div>
+        <footer style={{ 
+          marginTop: '40px', 
+          padding: '0px', 
+          textAlign: 'center', 
+          fontSize: '0.8rem', 
+          color: 'var(--text-secondary)', 
+          borderTop: '1px solid var(--border)' 
+        }}>
+          ⚠️ EQITYLENS provides AI-generated financial research for educational and informational purposes only. Not investment advice.
+        </footer>
       </div>
     </div>
   );
@@ -105,6 +121,7 @@ function AppRoutes() {
           <Route path="/company/:ticker" element={<PrivateRoute><Company /></PrivateRoute>} />
           <Route path="/company/:ticker/chat" element={<PrivateRoute><ResearchAssistant /></PrivateRoute>} />
           <Route path="/compare" element={<PrivateRoute><Compare /></PrivateRoute>} />
+          <Route path="/about" element={<PrivateRoute><AboutUs /></PrivateRoute>} />
         </Routes>
       </AppLayout>
     </BrowserRouter>

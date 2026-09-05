@@ -2,13 +2,32 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { RevenueChart, MarginChart } from './Charts';
 
-export default function ReportViewer({ report }) {
+export default function ReportViewer({ report, ticker }) {
   if (!report || !report.sections) return <div>No report data</div>;
 
   return (
     <div className="report-viewer">
+      <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        <h2 style={{ fontSize: '1.8rem', marginBottom: '15px', color: 'var(--text-primary)' }}>{ticker || 'Company'} — Equity Research Report</h2>
+        <div style={{ background: 'rgba(251, 191, 36, 0.05)', border: '1px solid rgba(251, 191, 36, 0.2)', padding: '20px', borderRadius: '12px' }}>
+          <h4 style={{ color: '#fbbf24', margin: '0 0 10px 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ⚠️ DISCLAIMER
+          </h4>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+            This AI-generated research is for educational and informational purposes only and does not constitute investment advice. Verify all information independently before making investment decisions.
+          </p>
+        </div>
+      </div>
+
       {report.sections.map((section) => (
-        <ReportSection key={section.id} section={section} />
+        <React.Fragment key={section.id}>
+          {section.title === 'Sources' && (
+            <div style={{ padding: '15px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', margin: '30px 0 20px 0', fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+              ⚠️ AI-generated research is for educational purposes only. Not investment advice.
+            </div>
+          )}
+          <ReportSection section={section} />
+        </React.Fragment>
       ))}
     </div>
   );

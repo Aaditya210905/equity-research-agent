@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Search, Building2 } from 'lucide-react';
+import MarketDataGrid from '../components/MarketDataGrid';
 
 export default function CompanyOverview() {
   const [ticker, setTicker] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [marketData, setMarketData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -16,6 +18,7 @@ export default function CompanyOverview() {
     setLoading(true);
     setError('');
     setCompanyInfo(null);
+    setMarketData(null);
 
     try {
       const compRes = await fetch(`http://localhost:8000/company/${searchQuery}`);
@@ -24,6 +27,11 @@ export default function CompanyOverview() {
       } else {
         setError('Company not found.');
       }
+      
+      const marketRes = await fetch(`http://localhost:8000/market/${searchQuery}`);
+      if (marketRes.ok) {
+        setMarketData(await marketRes.json());
+      }
     } catch (e) {
       console.error(e);
       setError('Failed to fetch data.');
@@ -31,8 +39,6 @@ export default function CompanyOverview() {
       setLoading(false);
     }
   };
-
-  const marketData = companyInfo?.market_data;
 
   const formatNumber = (num) => {
     if (!num) return 'N/A';
@@ -96,75 +102,12 @@ export default function CompanyOverview() {
             </div>
           </div>
 
-          {marketData && (() => {
-            const currency = companyInfo.profile.currency;
-            const sym = currency === 'INR' ? '₹' : (currency === 'USD' ? '$' : (currency === 'EUR' ? '€' : (currency === 'GBP' ? '£' : (currency ? `${currency} ` : '$'))));
-            
-            return (
-              <div>
-                <h3 style={{ marginBottom: '15px' }}>Live Market Data</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Current Price</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{sym}{marketData.current_price}</div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Previous Close</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{sym}{marketData.previous_close ?? 'N/A'}</div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Open</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{sym}{marketData.open ?? 'N/A'}</div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Market Cap</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{sym}{formatNumber(companyInfo.profile.market_cap)}</div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>P/E Ratio (TTM)</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{marketData.pe_ratio ?? 'N/A'}</div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Forward P/E</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>{marketData.forward_pe ?? 'N/A'}</div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>52Weeks Range</h4>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                      {sym}{marketData.fifty_two_week_low ?? '-'} - {sym}{marketData.fifty_two_week_high ?? '-'}
-                    </div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Day's Range</h4>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                      {sym}{marketData.day_low ?? '-'} - {sym}{marketData.day_high ?? '-'}
-                    </div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Volume</h4>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                      {marketData.volume?.toLocaleString() || 'N/A'}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '5px' }}>
-                      Avg: {marketData.average_volume?.toLocaleString() || 'N/A'}
-                    </div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Dividend Yield</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
-                      {marketData.dividend_yield ? `${marketData.dividend_yield}%` : 'N/A'}
-                    </div>
-                  </div>
-                  <div className="glass-card" style={{ padding: '20px' }}>
-                    <h4 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>Beta</h4>
-                    <div style={{ fontSize: '1.8rem', fontWeight: 'bold' }}>
-                      {marketData.beta ?? 'N/A'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+          {marketData && (
+            <div>
+              <h3 style={{ marginBottom: '15px' }}>Live Market Data</h3>
+              <MarketDataGrid marketData={marketData} />
+            </div>
+          )}
         </div>
       )}
     </div>
