@@ -91,6 +91,7 @@ export default function Company() {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateLogs, setGenerateLogs] = useState([]);
+  const [showNoDocsModal, setShowNoDocsModal] = useState(false);
 
   useEffect(() => {
     fetchLatestReport();
@@ -127,6 +128,19 @@ export default function Company() {
   };
 
   const handleGenerate = async () => {
+    try {
+      const docRes = await fetch(`http://localhost:8000/documents/${ticker}`);
+      if (docRes.ok) {
+        const docData = await docRes.json();
+        if (!docData.documents || docData.documents.length === 0) {
+          setShowNoDocsModal(true);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error("Error checking documents:", e);
+    }
+
     setIsGenerating(true);
     setGenerateLogs([]);
     
@@ -202,10 +216,7 @@ export default function Company() {
           </Link>
           {!isGenerating && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'right', maxWidth: '450px', lineHeight: '1.4' }}>
-                <span style={{ color: '#fbbf24', fontWeight: 600 }}>⚠️ Educational Use Only</span><br/>
-                AI-generated analysis is not investment advice. Verify information independently before making financial decisions.
-              </div>
+              
               <button className="btn-primary" onClick={handleGenerate} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
                 <RefreshCw size={16} /> Generate AI Report
               </button>
@@ -231,16 +242,15 @@ export default function Company() {
              <RefreshCw size={18} className="spin" /> Generating AI Report...
           </h3>
           <div style={{ background: 'rgba(0,0,0,0.5)', padding: '15px', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.9rem', color: '#a78bfa' }}>
-             {generateLogs.map((log, i) => (
-                <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'center', margin: '5px 0' }}>
-                   <CheckCircle2 size={14} color="var(--success)" /> {log.msg}
-                </div>
-             ))}
-             <div className="typing-indicator" style={{ color: 'var(--text-secondary)' }}>Gathering data...</div>
+            {generateLogs.map((log, idx) => (
+              <div key={idx} style={{ marginBottom: '5px' }}>
+                <span style={{ color: '#34d399' }}>[{new Date().toLocaleTimeString()}]</span> {log.msg}
+              </div>
+            ))}
           </div>
         </div>
       )}
-
+      
       {report ? (
         <div style={{ display: 'flex', gap: '30px' }}>
           <div style={{ flex: 3 }}>
@@ -252,13 +262,38 @@ export default function Company() {
         </div>
       ) : (
         !isGenerating && (
-          <div className="glass-card" style={{ textAlign: 'center', padding: '50px' }}>
-            <FileText size={48} style={{ color: 'var(--text-secondary)', marginBottom: '20px' }} />
-            <h3>No report available for {ticker}</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Generate a new report to begin your analysis.</p>
-            <button className="btn-primary" onClick={handleGenerate}>Run Research Pipeline</button>
+          <div className="glass-card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <FileText size={48} style={{ opacity: 0.2, marginBottom: '20px' }} />
+            <h3>No Report Available</h3>
+            <p>Click "Generate AI Report" to create a new research report for this company.</p>
           </div>
         )
+      )}
+
+      {showNoDocsModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="glass-card" style={{ padding: '30px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+            <div style={{ color: '#fbbf24', marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <h3 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>No Documents Ingested</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '25px', lineHeight: '1.5' }}>
+              You need to ingest financial documents for <b>{ticker}</b> before generating an AI report. The AI needs source material to analyze.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={() => setShowNoDocsModal(false)} className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--border)' }}>
+                Cancel
+              </button>
+              <Link to="/documents" className="btn-primary" style={{ textDecoration: 'none' }}>
+                Go to Documents
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

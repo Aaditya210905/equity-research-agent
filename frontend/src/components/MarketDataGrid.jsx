@@ -49,7 +49,7 @@ export default function MarketDataGrid({ marketData }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px' }}>
           <Card title="Market Cap" value={valuation.market_cap ? `${sym}${formatNumber(valuation.market_cap)}` : 'N/A'} />
           <Card title="Enterprise Value" value={valuation.enterprise_value ? `${sym}${formatNumber(valuation.enterprise_value)}` : 'N/A'} />
-          <Card title="Shares Out" value={valuation.shares_outstanding ? formatNumber(valuation.shares_outstanding) : 'N/A'} />
+          <Card title="Shares Outstanding" value={valuation.shares_outstanding ? formatNumber(valuation.shares_outstanding) : 'N/A'} />
         </div>
       </div>
 

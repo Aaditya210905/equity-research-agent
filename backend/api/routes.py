@@ -548,3 +548,46 @@ async def stream_research_report(ticker: str):
         yield _sse({"node": "done", "data": {}})
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# News endpoints
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/news/market/{market}",
+    tags=["News"],
+    summary="Get market news",
+    description="Fetches market-wide news for Indian (IN) or US markets.",
+)
+async def get_market_news(market: str):
+    """Fetch market-wide news (IN or US)."""
+    from connectors.news_connector import get_market_news_async
+    if market.upper() not in ("IN", "US"):
+        raise HTTPException(status_code=400, detail="Market must be 'IN' or 'US'.")
+    try:
+        items = await get_market_news_async(market.upper())
+        sources = list(dict.fromkeys(item.get("origin", "") for item in items))
+        return {"items": items, "sources": sources, "market": market.upper()}
+    except Exception as exc:
+        logger.error("Market news error for '%s': %s", market, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch market news for '{market.upper()}'.")
+
+
+@router.get(
+    "/news/{ticker}",
+    tags=["News"],
+    summary="Get company news",
+    description="Fetches recent news for a company from Google News, Bing, and Yahoo Finance.",
+)
+async def get_company_news(ticker: str, name: str = Query(default=None, description="Company name for relevance filtering")):
+    """Fetch company-specific news aggregated from multiple sources."""
+    from connectors.news_connector import get_company_news_async
+    try:
+        items = await get_company_news_async(ticker, name)
+        sources = list(dict.fromkeys(item.get("origin", "") for item in items))
+        return {"items": items, "sources": sources, "ticker": ticker.upper()}
+    except Exception as exc:
+        logger.error("News endpoint error for '%s': %s", ticker, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch news for '{ticker.upper()}'.")
+

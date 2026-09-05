@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe, Info } from 'lucide-react';
+import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe, Info, Newspaper } from 'lucide-react';
 import logo from './assets/logo.png';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -12,6 +12,7 @@ import BseScreener from './pages/BseScreener';
 import CompanyOverview from './pages/CompanyOverview';
 import ResearchAssistant from './pages/ResearchAssistant';
 import AboutUs from './pages/AboutUs';
+import NewsPage from './pages/NewsPage';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -56,6 +57,9 @@ function Sidebar() {
       </Link>
       <Link to="/compare" className={`nav-link ${location.pathname === '/compare' ? 'active' : ''}`}>
         <GitCompare size={18} /> Compare
+      </Link>
+      <Link to="/news" className={`nav-link ${location.pathname === '/news' ? 'active' : ''}`}>
+        <Newspaper size={18} /> News
       </Link>
       <Link to="/about" className={`nav-link ${location.pathname === '/about' ? 'active' : ''}`}>
         <Info size={18} /> About Us
@@ -121,6 +125,7 @@ function AppRoutes() {
           <Route path="/company/:ticker" element={<PrivateRoute><Company /></PrivateRoute>} />
           <Route path="/company/:ticker/chat" element={<PrivateRoute><ResearchAssistant /></PrivateRoute>} />
           <Route path="/compare" element={<PrivateRoute><Compare /></PrivateRoute>} />
+          <Route path="/news" element={<PrivateRoute><NewsPage /></PrivateRoute>} />
           <Route path="/about" element={<PrivateRoute><AboutUs /></PrivateRoute>} />
         </Routes>
       </AppLayout>
