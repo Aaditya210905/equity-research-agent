@@ -8,12 +8,19 @@ export default function ResearchAssistant() {
   const { ticker } = useParams();
   const { token } = useAuth();
   const [companyInfo, setCompanyInfo] = useState(null);
+  const [showUnknownTickerModal, setShowUnknownTickerModal] = useState(false);
 
   useEffect(() => {
     const fetchCompanyData = async () => {
       try {
         const compRes = await fetch(`http://localhost:8000/company/${ticker}`);
-        if (compRes.ok) setCompanyInfo(await compRes.json());
+        if (compRes.ok) {
+          const data = await compRes.json();
+          if (data?.profile?.company_name === 'Unknown' || data?.profile?.company_name === 'N/A') {
+            setShowUnknownTickerModal(true);
+          }
+          setCompanyInfo(data);
+        }
       } catch (e) { console.error(e); }
     };
     fetchCompanyData();
@@ -44,6 +51,29 @@ export default function ResearchAssistant() {
             <Chatbot ticker={ticker} />
          </div>
       </div>
+
+      {showUnknownTickerModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="glass-card" style={{ padding: '30px', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+            <div style={{ color: '#ef4444', marginBottom: '15px', display: 'flex', justifyContent: 'center' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <h3 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>Unknown Ticker</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '25px', lineHeight: '1.5' }}>
+              We couldn't find any financial data for the ticker <b>{ticker}</b>. Please check the symbol and try again.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <Link to="/" className="btn-primary" style={{ textDecoration: 'none' }}>
+                Go to Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ export default function Compare() {
   const [tickers, setTickers] = useState(['TCS', 'INFY', 'RELIANCE']);
   const [newTicker, setNewTicker] = useState('');
   const [marketDataMap, setMarketDataMap] = useState({});
+  const [error, setError] = useState('');
 
   useEffect(() => {
     tickers.forEach(async (t) => {
@@ -22,11 +23,31 @@ export default function Compare() {
     });
   }, [tickers]);
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
-    if (newTicker && !tickers.includes(newTicker.toUpperCase())) {
-      setTickers([...tickers, newTicker.toUpperCase()]);
+    if (!newTicker) return;
+    const t = newTicker.toUpperCase();
+    if (tickers.includes(t)) {
       setNewTicker('');
+      return;
+    }
+    
+    setError('');
+    try {
+      const res = await fetch(`http://localhost:8000/company/${t}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.profile?.company_name === 'Unknown' || data?.profile?.company_name === 'N/A') {
+          setError(`Unknown Ticker: Could not find data for ${t}`);
+          return;
+        }
+        setTickers([...tickers, t]);
+        setNewTicker('');
+      } else {
+        setError(`Failed to verify ticker ${t}`);
+      }
+    } catch (e) {
+      setError(`Error connecting to server`);
     }
   };
 
@@ -67,6 +88,7 @@ export default function Compare() {
             Add
           </button>
         </form>
+        {error && <div style={{ color: 'var(--danger)', marginTop: '10px', fontSize: '0.9rem' }}>{error}</div>}
       </div>
 
       <div className="glass-card" style={{ overflowX: 'auto' }}>

@@ -27,8 +27,8 @@ body {
     radial-gradient(at 50% 0%, rgba(30, 58, 138, 0.3) 0, transparent 50%), 
     radial-gradient(at 100% 0%, rgba(15, 23, 42, 1) 0, transparent 50%);
   color: var(--text-primary);
-  min-height: 100vh;
-  overflow-x: hidden;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* Auth Styles */
@@ -305,7 +305,8 @@ body {
 /* App Layout */
 .app-layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -316,6 +317,16 @@ body {
   padding: 20px;
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  
+  /* Hide scrollbars */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar h3 {
@@ -349,6 +360,14 @@ body {
   padding: 30px;
   overflow-y: auto;
   height: 100vh;
+
+  /* Hide scrollbars */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.main-content::-webkit-scrollbar {
+  display: none;
 }
 
 /* Cards & Dashboards */

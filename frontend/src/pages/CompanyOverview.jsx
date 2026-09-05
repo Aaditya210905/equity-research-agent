@@ -23,7 +23,12 @@ export default function CompanyOverview() {
     try {
       const compRes = await fetch(`http://localhost:8000/company/${searchQuery}`);
       if (compRes.ok) {
-        setCompanyInfo(await compRes.json());
+        const data = await compRes.json();
+        if (data?.profile?.company_name === 'Unknown' || data?.profile?.company_name === 'N/A') {
+          setError(`Unknown Ticker: We couldn't find any financial data for ${searchQuery.toUpperCase()}.`);
+        } else {
+          setCompanyInfo(data);
+        }
       } else {
         setError('Company not found.');
       }

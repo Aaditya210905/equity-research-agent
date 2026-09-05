@@ -72,9 +72,19 @@ function Sidebar() {
         </Link>
       ))}
       
-      <div style={{ marginTop: 'auto' }}>
+      <div style={{ 
+        marginTop: 'auto', 
+        position: 'sticky', 
+        bottom: '-20px', 
+        background: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(10px)',
+        margin: 'auto -20px -20px -20px', 
+        padding: '15px 20px 20px 20px',
+        borderTop: '1px solid var(--border)',
+        zIndex: 10
+      }}>
         {user && (
-          <div style={{ padding: '15px 0' }}>
+          <div>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>Logged in as <b>{user.username}</b></p>
             <button onClick={logout} className="btn-primary" style={{ width: '100%', background: 'transparent', border: '1px solid var(--border)' }}>
               Logout
