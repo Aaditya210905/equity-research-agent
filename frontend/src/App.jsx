@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe, Info, Newspaper } from 'lucide-react';
+import { LayoutDashboard, Building2, GitCompare, FolderOpen, Globe, Info, Newspaper, Landmark } from 'lucide-react';
 import logo from './assets/logo.png';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -9,6 +9,7 @@ import Company from './pages/Company';
 import Compare from './pages/Compare';
 import DocumentsHub from './pages/DocumentsHub';
 import BseScreener from './pages/BseScreener';
+import SecScreener from './pages/SecScreener';
 import CompanyOverview from './pages/CompanyOverview';
 import ResearchAssistant from './pages/ResearchAssistant';
 import AboutUs from './pages/AboutUs';
@@ -54,6 +55,9 @@ function Sidebar() {
       </Link>
       <Link to="/bse" className={`nav-link ${location.pathname === '/bse' ? 'active' : ''}`}>
         <Globe size={18} /> BSE India
+      </Link>
+      <Link to="/sec" className={`nav-link ${location.pathname === '/sec' ? 'active' : ''}`}>
+        <Landmark size={18} /> SEC Edgar
       </Link>
       <Link to="/compare" className={`nav-link ${location.pathname === '/compare' ? 'active' : ''}`}>
         <GitCompare size={18} /> Compare
@@ -132,6 +136,7 @@ function AppRoutes() {
           <Route path="/overview" element={<PrivateRoute><CompanyOverview /></PrivateRoute>} />
           <Route path="/documents" element={<PrivateRoute><DocumentsHub /></PrivateRoute>} />
           <Route path="/bse" element={<PrivateRoute><BseScreener /></PrivateRoute>} />
+          <Route path="/sec" element={<PrivateRoute><SecScreener /></PrivateRoute>} />
           <Route path="/company/:ticker" element={<PrivateRoute><Company /></PrivateRoute>} />
           <Route path="/company/:ticker/chat" element={<PrivateRoute><ResearchAssistant /></PrivateRoute>} />
           <Route path="/compare" element={<PrivateRoute><Compare /></PrivateRoute>} />

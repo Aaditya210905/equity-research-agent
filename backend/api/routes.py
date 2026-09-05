@@ -551,6 +551,58 @@ async def stream_research_report(ticker: str):
 
 
 # ---------------------------------------------------------------------------
+# SEC EDGAR Filings
+# ---------------------------------------------------------------------------
+
+@router.get("/sec/search", tags=["SEC Filings"])
+async def sec_search(query: str = Query(min_length=1, max_length=10)):
+    from services.sec_service import search_companies
+    return search_companies(query)
+
+@router.post("/sec/filings/fetch", tags=["SEC Filings"])
+async def sec_fetch_filings(options: dict):
+    # we accept a dict and parse it to avoid circular imports at module level
+    import asyncio
+    from schemas.sec import FetchOptions
+    from services.sec_service import ingest_company
+    
+    fetch_opts = FetchOptions(**options)
+    try:
+        return await asyncio.to_thread(ingest_company, fetch_opts)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+@router.get("/sec/filings", tags=["SEC Filings"])
+async def sec_list_filings():
+    return list_company_folders()
+
+@router.get("/sec/file/{file_path:path}", tags=["SEC Filings"])
+async def sec_serve_file(file_path: str):
+    try:
+        path = resolve_under_root(file_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    ext = path.suffix.lower()
+    if ext in (".htm", ".html"):
+        mime_type = "text/html"
+    elif ext == ".txt":
+        mime_type = "text/plain"
+    elif ext == ".json":
+        mime_type = "application/json"
+    else:
+        mime_type = "application/pdf"
+        
+    return FileResponse(
+        path=path,
+        media_type=mime_type,
+        filename=path.name,
+        content_disposition_type="inline"
+    )
+
+# ---------------------------------------------------------------------------
 # News endpoints
 # ---------------------------------------------------------------------------
 
