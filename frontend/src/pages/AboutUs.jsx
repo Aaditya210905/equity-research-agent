@@ -24,19 +24,19 @@ export default function AboutUs() {
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 20px', color: 'var(--text-primary)' }}>
       {/* Hero Section */}
       <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-        <img src={logo} alt="EQUITYLENS Logo" style={{ height: '90px', marginBottom: '20px' }} />
+        <img src={logo} alt="EQUAILENS Logo" style={{ height: '90px', marginBottom: '20px' }} />
         <h1 style={{ fontSize: '2.8rem', marginBottom: '15px', background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Welcome to EquityLens
+          Welcome to EquAiLens
         </h1>
         <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto', lineHeight: '1.6' }}>
-          <b>EQUITYLENS</b> is an autonomous, AI-powered equity research platform designed to help investors, analysts, and researchers cut through the noise of financial markets.
+          <b>EQUAILENS</b> is an autonomous, AI-powered equity research platform designed to help investors, analysts, and researchers cut through the noise of financial markets.
         </p>
       </div>
 
       {/* Intro text */}
       <div className="glass-card" style={{ padding: '30px', marginBottom: '50px', fontSize: '1.1rem', lineHeight: '1.7', borderLeft: '4px solid var(--accent)' }}>
         <p style={{ margin: 0 }}>
-          Unlike standard AI chatbots, EQUITYLENS is built on a specialized <b>Agentic Workflow (LangGraph)</b>. It actively reaches out to external APIs, fetches multi-market financial data (US & India), parses native SEC/BSE filings, aggregates global news, and uses Retrieval-Augmented Generation (RAG) to ground every piece of analysis in absolute fact.
+          Unlike standard AI chatbots, EQUAILENS is built on a specialized <b>Agentic Workflow (LangGraph)</b>. It actively reaches out to external APIs, fetches multi-market financial data (US & India), parses native SEC/BSE filings, aggregates global news, and uses Retrieval-Augmented Generation (RAG) to ground every piece of analysis in absolute fact.
         </p>
       </div>
 
@@ -81,7 +81,7 @@ export default function AboutUs() {
             <Shield color="#10b981" /> Built with Responsible AI
           </h2>
           <p style={{ color: 'var(--text-secondary)', lineHeight: '1.7', marginBottom: '20px' }}>
-            EQUITYLENS is designed with an uncompromising emphasis on <b>accuracy, transparency, and verifiability</b>. Every piece of analysis is tied to the raw filings downloaded directly from government or exchange servers.
+            EQUAILENS is designed with an uncompromising emphasis on <b>accuracy, transparency, and verifiability</b>. Every piece of analysis is tied to the raw filings downloaded directly from government or exchange servers.
           </p>
           <p style={{ color: 'var(--text-secondary)', lineHeight: '1.7' }}>
             However, LLM hallucinations and data delays can still occur. <b>We encourage all users to independently verify information</b> by checking the source documents provided in the platform before making any financial decisions.
@@ -95,7 +95,7 @@ export default function AboutUs() {
           ⚠️ Important Disclaimer
         </h3>
         <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '15px', maxWidth: '800px', margin: '0 auto 15px auto' }}>
-          EQUITYLENS provides AI-generated financial research for <b>educational and informational purposes only</b>. It does not constitute investment, financial, or personalized advice, nor does it constitute a recommendation to buy, sell, or hold any security.
+          EQUAILENS provides AI-generated financial research for <b>educational and informational purposes only</b>. It does not constitute investment, financial, or personalized advice, nor does it constitute a recommendation to buy, sell, or hold any security.
         </p>
         <p style={{ color: 'var(--text-primary)', fontWeight: 'bold', margin: 0 }}>
           Investments are subject to market risks, including the possible loss of principal. Past performance does not guarantee future results.
@@ -104,7 +104,7 @@ export default function AboutUs() {
 
       {/* Footer Tagline */}
       <div style={{ textAlign: 'center', marginTop: '60px', paddingBottom: '40px', color: 'var(--text-secondary)', fontSize: '1.1rem' }}>
-        <p><b>EQUITYLENS</b> — Research smarter. Verify the evidence. Decide for yourself.</p>
+        <p><b>EQUAILENS</b> — Research smarter. Verify the evidence. Decide for yourself.</p>
       </div>
 
     </div>

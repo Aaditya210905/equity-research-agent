@@ -53,7 +53,7 @@ export default function Auth() {
           <div className="auth-form-container">
             <div className="auth-header">
               <div style={{ marginBottom: '15px', transform: 'translateX(-10px)' }}>
-                <img src={logo} alt="EQUITYLENS Logo" style={{ height: '60px', objectFit: 'contain' }} />
+                <img src={logo} alt="EQUAILENS Logo" style={{ height: '60px', objectFit: 'contain' }} />
               </div>
               <h2 className="auth-title">{isLogin ? 'LOGIN' : 'REGISTER'}</h2>
             </div>

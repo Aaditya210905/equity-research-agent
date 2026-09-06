@@ -1,10 +1,10 @@
-# EquityLens 📈
+# EquAiLens 📈
 
-**EquityLens** is a full-stack, AI-powered equity research platform that automates the end-to-end workflow of financial analysis — from raw data collection and document parsing to AI-driven research report generation with source citations.
+**EquAiLens** is a full-stack, AI-powered equity research platform that automates the end-to-end workflow of financial analysis — from raw data collection and document parsing to AI-driven research report generation with source citations.
 
-Unlike simple AI chatbots, EquityLens uses an **Agentic Workflow** (powered by **LangGraph**) that autonomously fetches multi-market financial data, downloads native SEC/BSE filings, aggregates global news, and uses **Retrieval-Augmented Generation (RAG)** to ground every piece of analysis in verifiable fact.
+Unlike simple AI chatbots, EquAiLens uses an **Agentic Workflow** (powered by **LangGraph**) that autonomously fetches multi-market financial data, downloads native SEC/BSE filings, aggregates global news, and uses **Retrieval-Augmented Generation (RAG)** to ground every piece of analysis in verifiable fact.
 
-![EquityLens](frontend/src/assets/logo.png)
+![EquAiLens](frontend/src/assets/logo.png)
 
 ---
 
@@ -252,7 +252,7 @@ equity-research-agent/
 │       ├── index.css             # Global design system (dark theme, glassmorphism)
 │       │
 │       ├── assets/               # Static assets
-│       │   ├── logo.png          # EquityLens logo
+│       │   ├── logo.png          # EquAiLens logo
 │       │   └── logo_w.png        # White variant logo
 │       │
 │       ├── context/
@@ -396,7 +396,7 @@ docker run -p 6333:6333 qdrant/qdrant
 
 ## 🧠 How the AI Works
 
-EquityLens does **not** rely solely on pre-trained LLM knowledge. When you trigger a research report or ask a question:
+EquAiLens does **not** rely solely on pre-trained LLM knowledge. When you trigger a research report or ask a question:
 
 ### Step 1 — Planning
 The **Planner** analyzes your query and determines what evidence is needed (financial data, document excerpts, news sentiment, ratio calculations).
@@ -428,9 +428,9 @@ The **Report Generator** assembles everything into a structured research report 
 
 ## ⚠️ Disclaimer
 
-**EQUITYLENS** provides AI-generated financial research for **educational and informational purposes only**. It does not constitute investment, financial, or personalized advice, nor does it constitute a recommendation to buy, sell, or hold any security.
+**EQUAILENS** provides AI-generated financial research for **educational and informational purposes only**. It does not constitute investment, financial, or personalized advice, nor does it constitute a recommendation to buy, sell, or hold any security.
 
-EQUITYLENS does not assess an individual's financial circumstances, investment objectives, or risk tolerance. Users are responsible for their own investment decisions and should consult a qualified financial professional when personalized advice is required.
+EQUAILENS does not assess an individual's financial circumstances, investment objectives, or risk tolerance. Users are responsible for their own investment decisions and should consult a qualified financial professional when personalized advice is required.
 
 **Investments are subject to market risks, including the possible loss of principal. Past performance does not guarantee future results.**
 
@@ -443,5 +443,5 @@ This project is open-source and available under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <b>EquityLens</b> — Research smarter. Verify the evidence. Decide for yourself.
+  <b>EquAiLens</b> — Research smarter. Verify the evidence. Decide for yourself.
 </p>

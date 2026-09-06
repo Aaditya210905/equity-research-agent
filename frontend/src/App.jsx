@@ -41,7 +41,7 @@ function Sidebar() {
   return (
     <div className="sidebar">
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', padding: '0px 0px' }}>
-        <img src={logo} alt="EQUITYLENS Logo" style={{ width: '165px', height: 'auto', objectFit: 'contain' }} />
+        <img src={logo} alt="EQUAILENS Logo" style={{ width: '165px', height: 'auto', objectFit: 'contain' }} />
       </div>
       <h3>Menu</h3>
       <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
